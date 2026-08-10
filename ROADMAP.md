@@ -7,7 +7,7 @@ no phase ships stubs or fake data paths (§47).
 |---|---|---|
 | 1 | Architecture, database schema, auth, RBAC, tenant isolation, country config | **Delivered** |
 | 2 | Admin portal + tenant management (create/verify/suspend tenants, plans, cities/countries CMS) | **Delivered** |
-| 3 | Doctor + clinic management (profiles, branches, staff, services, verification workflow) | Not started |
+| 3 | Doctor + clinic management (profiles, branches, staff, services, verification workflow) | **Delivered** |
 | 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | Not started |
 | 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | Not started |
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | Not started |
@@ -44,8 +44,30 @@ Explicitly out of scope for Phase 2 (belongs to Phase 3): branches, doctor profi
 services, and the tenant's own self-service onboarding flow — the admin creates the
 tenant shell, the tenant fills in the rest of itself in Phase 3.
 
+## Phase 3 delivered
+
+A `TENANT_ADMIN` created in Phase 2 can now log in and actually run their clinic:
+manage branches, add doctors (creates a real `DOCTOR` login in the same transaction, same
+pattern as tenant onboarding), add reception staff, and manage the service/pricing
+catalog — all through `/api/v1/tenant/*` routes. Doctors get a self-service profile
+(`/api/v1/doctor/profile`) and a SUPER_ADMIN verification queue
+(`/api/v1/admin/doctors`) gates the "verified" badge separately from tenant verification.
+
+This is the first phase where the Phase 1 tenant-scoping Prisma middleware actually runs
+(`withTenantAuthorization` / `runInSessionTenant` wrap every tenant route in
+`runWithTenant`) — Phase 2's admin routes are intentionally cross-tenant and never
+exercised it. Verified against a live Postgres instance with two real tenants: Tenant B
+sees zero of Tenant A's branches/doctors/staff/services, a direct-by-id fetch of Tenant
+A's doctor/branch from Tenant B's session 404s instead of leaking, and creating a doctor
+using another tenant's branch id is rejected — this is the isolation guarantee the whole
+multi-tenant architecture depends on, now proven, not just designed.
+
+Explicitly out of scope (Phase 4): schedules/availability and the appointment booking
+flow itself — Phase 3 gives doctors and services a home but nothing books them yet.
+
 ## Immediate next step
 
-Phase 3 (doctor + clinic management) — branches, doctor profiles/verification, staff,
-services — is the natural next PR. It's what lets a `TENANT_ADMIN` account created in
-Phase 2 actually do something after logging in.
+Phase 4 (appointment engine) — schedules, availability calculation, transactional
+booking, the double-booking guarantee already baked into the schema — is next. It's what
+turns the doctors/branches/services from Phase 3 into something a patient or receptionist
+can actually book.

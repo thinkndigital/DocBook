@@ -47,12 +47,20 @@ before making structural changes. The load-bearing patterns to know before touch
 carries a `tenantId` column. Application code must never manually add `tenantId` to a
 `where` clause — `src/lib/tenant.ts` registers a Prisma `$use` middleware
 (`tenantScopingMiddleware`) that injects it automatically from an `AsyncLocalStorage`
-context (`runWithTenant`). Route handlers should wrap their body in `runWithTenant(ctx, ...)`
-using the session's `tenantId`; `SUPER_ADMIN` routes set `bypass: true` explicitly.
-**Exception**: `findUnique`/`findFirst`-by-id calls are *not* scoped by the middleware
-(Prisma doesn't allow extra `where` filters alongside a unique lookup) — any handler that
-fetches a single row by id must verify `row.tenantId === session.tenantId` itself, or use
-`findFirst({ where: { id, tenantId } })` instead, which the middleware does scope.
+context (`runWithTenant`). Don't call `runWithTenant` directly in a route: use
+`withTenantAuthorization(session, permission, handler)` from `src/lib/api/tenant-scope.ts`
+for API routes (combines the RBAC check with tenant scoping) and `runInSessionTenant(fn)`
+from the same file for server-component pages under `/tenant/*` (the layout already
+guards the role, this just supplies the tenant context) — see `src/app/api/v1/tenant/*`
+and `src/app/tenant/*` for the pattern. `SUPER_ADMIN` routes under `/api/v1/admin/*` never
+call these — they run with no tenant context at all, which the middleware treats as
+bypass (see `/api/v1/admin/tenants` for the shape).
+**Exception**: `findUnique` is *not* scoped by the middleware (Prisma doesn't allow extra
+`where` filters alongside a unique lookup) — use `findFirst({ where: { id } })` instead
+for any single-row-by-id fetch inside tenant context; `findFirst` *is* scoped and this is
+the convention followed throughout (`getBranch`, `getDoctor`, etc. in `src/lib/services/`).
+Verified end-to-end in Phase 3: a second tenant's session gets an empty list and a 404 (not
+a leak) when it tries to read the first tenant's branches/doctors by id.
 
 **RBAC is a static permission matrix, not database rows.** `src/types/rbac.ts` defines
 `ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'>`. `SUPER_ADMIN` is `'*'` (bypasses

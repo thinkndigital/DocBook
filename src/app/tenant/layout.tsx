@@ -4,23 +4,23 @@ import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
 
 const NAV = [
-  { href: '/admin', label: 'نظرة عامة' },
-  { href: '/admin/tenants', label: 'الجهات الصحية' },
-  { href: '/admin/doctors', label: 'توثيق الأطباء' },
-  { href: '/admin/settings/countries', label: 'الدول والمدن' },
-  { href: '/admin/settings/plans', label: 'خطط الاشتراك' },
+  { href: '/tenant', label: 'نظرة عامة' },
+  { href: '/tenant/branches', label: 'الفروع' },
+  { href: '/tenant/doctors', label: 'الأطباء' },
+  { href: '/tenant/staff', label: 'الموظفون' },
+  { href: '/tenant/services', label: 'الخدمات' },
 ];
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function TenantLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
-  if (!session) redirect('/login?callbackUrl=/admin');
-  if (session.user.role !== 'SUPER_ADMIN') redirect('/');
+  if (!session) redirect('/login?callbackUrl=/tenant');
+  if (session.user.role !== 'TENANT_ADMIN') redirect('/');
 
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 shrink-0 border-l border-neutral-200 bg-white p-4">
-        <div className="mb-6 px-2 text-lg font-bold text-brand-700">DocBook Admin</div>
+        <div className="mb-6 px-2 text-lg font-bold text-brand-700">لوحة إدارة الجهة</div>
         <nav className="flex flex-col gap-1">
           {NAV.map((item) => (
             <Link
