@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions, type SessionUser } from '@/lib/auth';
-import type { Permission } from '@/types/rbac';
+import { hasPermission, type Permission } from '@/types/rbac';
 import { withAuthorization } from '@/lib/rbac';
+import { recordAudit } from '@/lib/audit';
 import { runWithTenant } from '@/lib/tenant';
 
 /**
@@ -27,6 +28,48 @@ export async function withTenantAuthorization<T>(
     const tenantId = user.tenantId;
     return runWithTenant({ tenantId, bypass: false }, () => handler({ ...user, tenantId }));
   });
+}
+
+/**
+ * Same as withTenantAuthorization but grants access if the caller holds ANY of the given
+ * permissions — several appointment/queue actions are legitimately available to
+ * RECEPTIONIST, TENANT_ADMIN, and DOCTOR under three different existing permission names
+ * (see src/types/rbac.ts) rather than one shared one, and this avoids either re-litigating
+ * the Phase 1 permission list or duplicating the same route three times.
+ */
+export async function withTenantAuthorizationAny<T>(
+  session: SessionUser | null | undefined,
+  permissions: Permission[],
+  handler: (user: SessionUser & { tenantId: string }) => Promise<T>
+): Promise<T | NextResponse> {
+  if (!session) {
+    return NextResponse.json(
+      { error: { code: 'UNAUTHENTICATED', message: 'Not authorized for this action.' } },
+      { status: 401 }
+    );
+  }
+  const granted = permissions.some((p) => hasPermission(session.role, p));
+  if (!granted) {
+    await recordAudit({
+      actorUserId: session.id,
+      tenantId: session.tenantId,
+      action: 'PERMISSION_DENIED',
+      entityType: 'Permission',
+      entityId: permissions.join('|'),
+    });
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Not authorized for this action.' } },
+      { status: 403 }
+    );
+  }
+  if (!session.tenantId) {
+    return NextResponse.json(
+      { error: { code: 'NO_TENANT_CONTEXT', message: 'This account is not attached to a tenant.' } },
+      { status: 403 }
+    );
+  }
+  const tenantId = session.tenantId;
+  return runWithTenant({ tenantId, bypass: false }, () => handler({ ...session, tenantId }));
 }
 
 /**

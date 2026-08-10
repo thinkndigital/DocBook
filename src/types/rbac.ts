@@ -37,6 +37,7 @@ export type Permission =
   | 'doctor:manage'
   | 'staff:manage'
   | 'service:manage'
+  | 'schedule:manage'
   | 'appointment:manage_tenant'
   | 'queue:manage'
   | 'report:read_tenant'
@@ -105,6 +106,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'doctor:manage',
     'staff:manage',
     'service:manage',
+    'schedule:manage',
     'appointment:manage_tenant',
     'queue:manage',
     'report:read_tenant',

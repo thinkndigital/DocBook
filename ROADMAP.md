@@ -8,7 +8,7 @@ no phase ships stubs or fake data paths (§47).
 | 1 | Architecture, database schema, auth, RBAC, tenant isolation, country config | **Delivered** |
 | 2 | Admin portal + tenant management (create/verify/suspend tenants, plans, cities/countries CMS) | **Delivered** |
 | 3 | Doctor + clinic management (profiles, branches, staff, services, verification workflow) | **Delivered** |
-| 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | Not started |
+| 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | **Delivered** |
 | 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | Not started |
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | Not started |
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | Not started |
@@ -65,9 +65,37 @@ multi-tenant architecture depends on, now proven, not just designed.
 Explicitly out of scope (Phase 4): schedules/availability and the appointment booking
 flow itself — Phase 3 gives doctors and services a home but nothing books them yet.
 
+## Phase 4 delivered
+
+Doctors now have real weekly schedules (per day-of-week, per branch, with configurable
+slot duration and buffer) and schedule exceptions (holiday/leave/emergency closure,
+full-day or partial). An availability engine computes open slots from schedule minus
+exceptions minus already-booked appointments. Receptionists/tenant admins can register a
+patient (or look one up by email — patients are a single cross-tenant identity, not
+per-clinic) and book them into an available slot; the appointment then moves through the
+full queue lifecycle (confirmed → checked-in → in-queue → called → in-consultation →
+completed, or cancelled/no-show along the way) via a validated state machine, and can be
+rescheduled to a different open slot.
+
+**The brief's one non-negotiable test (§44: "two users must never successfully book the
+same appointment slot") is now proven against the real API, not just raw SQL**: five
+concurrent HTTP booking requests were fired at the identical open slot for the same
+doctor/branch — exactly one returned 201, the other four correctly got `409 SLOT_TAKEN`,
+and the database has exactly one non-cancelled row for that slot. The safety net is
+layered: an application-level availability check, a `SERIALIZABLE` transaction, and the
+Phase 1 partial unique index as the backstop that actually decided this race. Also
+verified: a holiday exception correctly empties a day's availability, and rescheduling an
+appointment correctly flips the old row to `RESCHEDULED` and creates a new `CONFIRMED` one.
+
+Known, intentional simplifications for this phase (see code comments in
+`src/lib/services/availability.ts`): the slot grid uses the doctor's fixed
+`Schedule.slotDurationMinutes`, not each service's own `durationMinutes` — variable-length
+slot packing isn't implemented. Dates are treated as UTC calendar days, not adjusted for
+`Country.timezone` yet.
+
 ## Immediate next step
 
-Phase 4 (appointment engine) — schedules, availability calculation, transactional
-booking, the double-booking guarantee already baked into the schema — is next. It's what
-turns the doctors/branches/services from Phase 3 into something a patient or receptionist
-can actually book.
+Phase 5 (patient marketplace) — public search, doctor/clinic profile pages, i18n ar/en
+RTL/LTR, and a patient-facing self-service booking UI on top of the engine built in this
+phase — is next. Everything booking-related so far has been staff-driven (receptionist/
+tenant admin); Phase 5 is what lets an actual patient find a doctor and book themselves.

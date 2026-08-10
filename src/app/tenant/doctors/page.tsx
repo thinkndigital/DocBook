@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { runInSessionTenant } from '@/lib/api/tenant-scope';
 import { listBranches } from '@/lib/services/branches';
@@ -43,12 +44,13 @@ export default async function DoctorsPage() {
               <th className="px-4 py-3 font-medium">الفروع</th>
               <th className="px-4 py-3 font-medium">سعر الاستشارة</th>
               <th className="px-4 py-3 font-medium">التوثيق</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {doctors.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-neutral-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
                   لا يوجد أطباء بعد.
                 </td>
               </tr>
@@ -67,6 +69,11 @@ export default async function DoctorsPage() {
                   <Badge tone={VERIFICATION_TONE[doctor.verificationStatus]}>
                     {VERIFICATION_LABEL[doctor.verificationStatus]}
                   </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Link href={`/tenant/doctors/${doctor.id}`} className="text-sm text-brand-700 hover:underline">
+                    الجدول
+                  </Link>
                 </td>
               </tr>
             ))}
