@@ -60,6 +60,25 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // A suspended tenant's staff/doctors/receptionists lose access immediately —
+        // this is what makes the admin "suspend tenant" action a real enforcement point
+        // rather than just a status flag nobody checks. Patients and SUPER_ADMIN have no
+        // tenantId and are unaffected.
+        if (user.tenantId) {
+          const tenant = await db.tenant.findUnique({ where: { id: user.tenantId }, select: { status: true } });
+          if (tenant?.status === 'SUSPENDED') {
+            await recordAudit({
+              actorUserId: user.id,
+              tenantId: user.tenantId,
+              action: 'LOGIN_BLOCKED_TENANT_SUSPENDED',
+              entityType: 'User',
+              entityId: user.id,
+              ipAddress: getIp(req),
+            });
+            return null;
+          }
+        }
+
         await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
         await recordAudit({
           actorUserId: user.id,

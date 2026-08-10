@@ -56,6 +56,8 @@ export type Permission =
   // Super admin
   | 'tenant:manage_all'
   | 'tenant:verify'
+  | 'country:manage'
+  | 'city:manage'
   | 'subscription_plan:manage'
   | 'commission_rule:manage'
   | 'cms:manage'

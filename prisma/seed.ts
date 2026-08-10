@@ -1,5 +1,6 @@
 import { PrismaClient, TenantType, TenantStatus, UserRole, SubscriptionTier } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_ASSIGNED_PASSWORD } from '../src/lib/constants';
 
 const prisma = new PrismaClient();
 
@@ -23,7 +24,7 @@ const SPECIALTIES = [
   { slug: 'psychiatry', name: 'Psychiatry', nameAr: 'الطب النفسي' },
 ];
 
-const DEFAULT_PASSWORD = 'DocBook@2026';
+const DEFAULT_PASSWORD = DEFAULT_ASSIGNED_PASSWORD;
 
 async function main() {
   const jordan = await prisma.country.upsert({
