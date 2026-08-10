@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docbook
+      POSTGRES_PASSWORD: docbook
+      POSTGRES_DB: docbook
+    ports:
+      - '5432:5432'
+    volumes:
+      - docbook_db_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    ports:
+      - '3000:3000'
+
+volumes:
+  docbook_db_data:

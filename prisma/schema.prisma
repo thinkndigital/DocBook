@@ -1,0 +1,897 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum TenantType {
+  INDEPENDENT_DOCTOR
+  CLINIC
+  MEDICAL_CENTER
+  HOSPITAL
+  PHARMACY
+  LABORATORY
+  HEALTHCARE_GROUP
+  CORPORATE
+  INSURANCE_COMPANY
+}
+
+enum TenantStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  DOCTOR
+  RECEPTIONIST
+  REPRESENTATIVE
+  PATIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AppointmentType {
+  IN_PERSON
+  VIDEO
+  FOLLOW_UP
+  EMERGENCY
+  HOME_VISIT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_QUEUE
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum ScheduleExceptionType {
+  HOLIDAY
+  LEAVE
+  EMERGENCY_CLOSURE
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  APPLE_PAY
+  GOOGLE_PAY
+  BANK_TRANSFER
+  CASH
+  INSURANCE
+  CORPORATE_BILLING
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum CommissionEntityType {
+  DOCTOR
+  CLINIC
+  REPRESENTATIVE
+  PLATFORM
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum VideoSessionStatus {
+  SCHEDULED
+  WAITING_ROOM
+  IN_PROGRESS
+  ENDED
+  FAILED
+}
+
+enum AttachmentOwnerType {
+  MEDICAL_RECORD
+  PRESCRIPTION
+  PATIENT_UPLOAD
+  CLINIC_DOCUMENT
+}
+
+// ---------- Geography / country config ----------
+
+model Country {
+  id          String   @id @default(uuid())
+  code        String   @unique // ISO 3166-1 alpha-2, e.g. "JO"
+  name        String
+  nameAr      String
+  currency    String // ISO 4217, e.g. "JOD"
+  phonePrefix String // e.g. "+962"
+  timezone    String // e.g. "Asia/Amman"
+  languages   String[] // e.g. ["ar", "en"]
+  taxRules    Json? // VAT rate, invoicing requirements, etc.
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cities  City[]
+  tenants Tenant[]
+
+  @@map("countries")
+}
+
+model City {
+  id        String   @id @default(uuid())
+  countryId String
+  name      String
+  nameAr    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  country  Country  @relation(fields: [countryId], references: [id])
+  branches Branch[]
+
+  @@unique([countryId, name])
+  @@map("cities")
+}
+
+// ---------- Tenancy ----------
+
+model Tenant {
+  id         String       @id @default(uuid())
+  type       TenantType
+  name       String
+  nameAr     String
+  countryId  String
+  status     TenantStatus @default(PENDING_VERIFICATION)
+  inviteCode String?      @unique
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  deletedAt  DateTime?
+
+  country                   Country                    @relation(fields: [countryId], references: [id])
+  users                     User[]
+  branches                  Branch[]
+  doctors                   Doctor[]
+  services                  Service[]
+  appointments              Appointment[]
+  staff                     Staff[]
+  subscriptions             Subscription[]
+  insurances                TenantInsurance[]
+  auditLogs                 AuditLog[]
+  commissionRules           CommissionRule[]
+  representativeAssignments RepresentativeAssignment[]
+
+  @@index([countryId])
+  @@map("tenants")
+}
+
+model Branch {
+  id            String   @id @default(uuid())
+  tenantId      String
+  name          String
+  address       String
+  cityId        String
+  latitude      Float?
+  longitude     Float?
+  phone         String?
+  openingHours  Json // { mon: [{start, end}], ... }
+  parkingInfo   String?
+  accessibility String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  city               City                @relation(fields: [cityId], references: [id])
+  doctorBranches     DoctorBranch[]
+  staff              Staff[]
+  schedules          Schedule[]
+  scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+
+  @@index([tenantId])
+  @@index([cityId])
+  @@map("branches")
+}
+
+// ---------- Users & roles ----------
+
+model User {
+  id               String     @id @default(uuid())
+  tenantId         String? // null for PATIENT and SUPER_ADMIN
+  email            String     @unique
+  phone            String?
+  passwordHash     String
+  role             UserRole
+  status           UserStatus @default(ACTIVE)
+  name             String
+  nameAr           String?
+  locale           String     @default("ar")
+  twoFactorEnabled Boolean    @default(false)
+  twoFactorSecret  String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  tenant         Tenant?         @relation(fields: [tenantId], references: [id])
+  patient        Patient?
+  doctor         Doctor?
+  staff          Staff?
+  representative Representative?
+  auditLogs      AuditLog[]      @relation("AuditActor")
+  notifications  Notification[]
+  sentMessages   Message[]       @relation("MessageSender")
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Patient {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  dateOfBirth      DateTime?
+  gender           Gender?
+  nationalId       String?
+  bloodType        String?
+  allergies        String[]
+  emergencyContact Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id])
+  familyMembers  FamilyMember[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+  payments       Payment[]
+  reviews        Review[]
+
+  @@map("patients")
+}
+
+model FamilyMember {
+  id          String    @id @default(uuid())
+  patientId   String // the primary account holder
+  name        String
+  relation    String
+  dateOfBirth DateTime?
+  gender      Gender?
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("family_members")
+}
+
+model Staff {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  tenantId  String
+  branchId  String?
+  title     String?
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@map("staff")
+}
+
+model Representative {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  monthlyTargetAmount Int? // minor currency units
+  createdAt           DateTime @default(now())
+
+  user               User                       @relation(fields: [userId], references: [id])
+  assignments        RepresentativeAssignment[]
+  commissions        Commission[]
+  bookedAppointments Appointment[]              @relation("BookedByRepresentative")
+
+  @@map("representatives")
+}
+
+model RepresentativeAssignment {
+  id               String   @id @default(uuid())
+  representativeId String
+  tenantId         String
+  assignedAt       DateTime @default(now())
+
+  representative Representative @relation(fields: [representativeId], references: [id])
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+
+  @@unique([representativeId, tenantId])
+  @@map("representative_assignments")
+}
+
+// ---------- Clinical directory ----------
+
+model Specialty {
+  id       String  @id @default(uuid())
+  slug     String  @unique
+  name     String
+  nameAr   String
+  parentId String?
+
+  parent   Specialty?  @relation("SpecialtyChildren", fields: [parentId], references: [id])
+  children Specialty[] @relation("SpecialtyChildren")
+  doctors  Doctor[]
+  services Service[]
+
+  @@map("specialties")
+}
+
+model Doctor {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
+  tenantId               String
+  specialtyId            String
+  subSpecialty           String?
+  licenseNumber          String
+  yearsExperience        Int       @default(0)
+  bio                    String?
+  bioAr                  String?
+  gender                 Gender?
+  languages              String[]
+  verified               Boolean   @default(false)
+  verificationStatus     String    @default("PENDING") // PENDING | VERIFIED | REJECTED
+  consultationPriceMinor Int
+  currency               String    @default("JOD")
+  ratingAverage          Float     @default(0)
+  ratingCount            Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  deletedAt              DateTime?
+
+  user               User                @relation(fields: [userId], references: [id])
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  specialty          Specialty           @relation(fields: [specialtyId], references: [id])
+  branches           DoctorBranch[]
+  schedules          Schedule[]
+  scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+  medicalRecords     MedicalRecord[]
+  prescriptions      Prescription[]
+  reviews            Review[]
+
+  @@index([tenantId])
+  @@index([specialtyId])
+  @@map("doctors")
+}
+
+model DoctorBranch {
+  id       String @id @default(uuid())
+  doctorId String
+  branchId String
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@unique([doctorId, branchId])
+  @@map("doctor_branches")
+}
+
+model Service {
+  id              String          @id @default(uuid())
+  tenantId        String
+  specialtyId     String?
+  name            String
+  nameAr          String
+  priceMinor      Int
+  currency        String          @default("JOD")
+  durationMinutes Int
+  type            AppointmentType @default(IN_PERSON)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  specialty    Specialty?    @relation(fields: [specialtyId], references: [id])
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@map("services")
+}
+
+// ---------- Scheduling & appointments ----------
+
+model Schedule {
+  id                  String  @id @default(uuid())
+  doctorId            String
+  branchId            String
+  dayOfWeek           Int // 0 = Sunday .. 6 = Saturday
+  startTime           String // "09:00"
+  endTime             String // "17:00"
+  slotDurationMinutes Int     @default(20)
+  bufferMinutes       Int     @default(0)
+  isActive            Boolean @default(true)
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([doctorId, branchId])
+  @@map("schedules")
+}
+
+model ScheduleException {
+  id        String                @id @default(uuid())
+  doctorId  String
+  branchId  String
+  date      DateTime
+  type      ScheduleExceptionType
+  startTime String?
+  endTime   String?
+  reason    String?
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([doctorId, date])
+  @@map("schedule_exceptions")
+}
+
+model Appointment {
+  id                       String            @id @default(uuid())
+  tenantId                 String
+  branchId                 String
+  doctorId                 String
+  patientId                String
+  serviceId                String
+  bookedByUserId           String? // receptionist/patient user id
+  bookedByRepresentativeId String?
+  type                     AppointmentType
+  status                   AppointmentStatus @default(PENDING)
+  scheduledAt              DateTime
+  durationMinutes          Int
+  queueToken               Int?
+  checkedInAt              DateTime?
+  calledAt                 DateTime?
+  startedAt                DateTime?
+  completedAt              DateTime?
+  cancelReason             String?
+  priceMinor               Int
+  currency                 String            @default("JOD")
+  insuranceProviderId      String?
+  notes                    String?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  deletedAt                DateTime?
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  branch            Branch             @relation(fields: [branchId], references: [id])
+  doctor            Doctor             @relation(fields: [doctorId], references: [id])
+  patient           Patient            @relation(fields: [patientId], references: [id])
+  service           Service            @relation(fields: [serviceId], references: [id])
+  representative    Representative?    @relation("BookedByRepresentative", fields: [bookedByRepresentativeId], references: [id])
+  insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
+
+  queueEvents    QueueEvent[]
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+  payments       Payment[]
+  commissions    Commission[]
+  review         Review?
+  videoSession   VideoSession?
+
+  @@index([tenantId, scheduledAt])
+  @@index([doctorId, scheduledAt])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+model QueueEvent {
+  id            String            @id @default(uuid())
+  appointmentId String
+  status        AppointmentStatus
+  position      Int?
+  createdAt     DateTime          @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@index([appointmentId])
+  @@map("queue_events")
+}
+
+// ---------- Clinical records ----------
+
+model MedicalRecord {
+  id            String    @id @default(uuid())
+  tenantId      String
+  patientId     String
+  doctorId      String?
+  appointmentId String?
+  type          String // VISIT_NOTE | LAB_REPORT | IMAGING | DIAGNOSIS
+  diagnosis     String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
+
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  doctor      Doctor?      @relation(fields: [doctorId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  attachments Attachment[]
+
+  @@index([patientId])
+  @@index([tenantId])
+  @@map("medical_records")
+}
+
+model Prescription {
+  id              String    @id @default(uuid())
+  tenantId        String
+  medicalRecordId String?
+  appointmentId   String
+  doctorId        String
+  patientId       String
+  diagnosis       String?
+  instructions    String?
+  pdfStorageKey   String?
+  createdAt       DateTime  @default(now())
+  deletedAt       DateTime?
+
+  appointment Appointment  @relation(fields: [appointmentId], references: [id])
+  doctor      Doctor       @relation(fields: [doctorId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  medications Medication[]
+  attachments Attachment[]
+
+  @@index([patientId])
+  @@index([tenantId])
+  @@map("prescriptions")
+}
+
+model Medication {
+  id             String  @id @default(uuid())
+  prescriptionId String
+  name           String
+  dosage         String
+  frequency      String
+  durationDays   Int?
+  instructions   String?
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@index([prescriptionId])
+  @@map("medications")
+}
+
+model Attachment {
+  id               String              @id @default(uuid())
+  ownerType        AttachmentOwnerType
+  medicalRecordId  String?
+  prescriptionId   String?
+  tenantId         String
+  patientId        String?
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  storageKey       String
+  encrypted        Boolean             @default(false)
+  uploadedByUserId String
+  createdAt        DateTime            @default(now())
+
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+  prescription  Prescription?  @relation(fields: [prescriptionId], references: [id])
+
+  @@index([medicalRecordId])
+  @@index([prescriptionId])
+  @@map("attachments")
+}
+
+// ---------- Insurance ----------
+
+model InsuranceProvider {
+  id        String   @id @default(uuid())
+  name      String
+  nameAr    String
+  createdAt DateTime @default(now())
+
+  tenants      TenantInsurance[]
+  appointments Appointment[]
+
+  @@map("insurance_providers")
+}
+
+model TenantInsurance {
+  id                  String @id @default(uuid())
+  tenantId            String
+  insuranceProviderId String
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  insuranceProvider InsuranceProvider @relation(fields: [insuranceProviderId], references: [id])
+
+  @@unique([tenantId, insuranceProviderId])
+  @@map("tenant_insurances")
+}
+
+// ---------- Billing: subscriptions, commissions, payments ----------
+
+model SubscriptionPlan {
+  id                   String           @id @default(uuid())
+  tier                 SubscriptionTier
+  name                 String
+  priceMonthlyMinor    Int
+  currency             String           @default("JOD")
+  bookingCommissionPct Float            @default(0)
+  maxBranches          Int?
+  maxDoctors           Int?
+  apiAccess            Boolean          @default(false)
+  whiteLabel           Boolean          @default(false)
+  features             Json
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  tenantId           String
+  planId             String
+  status             SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
+
+model CommissionRule {
+  id              String               @id @default(uuid())
+  tenantId        String?
+  entityType      CommissionEntityType
+  percentage      Float?
+  flatAmountMinor Int?
+  isActive        Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  commissions Commission[]
+
+  @@index([tenantId])
+  @@map("commission_rules")
+}
+
+model Commission {
+  id               String               @id @default(uuid())
+  appointmentId    String
+  commissionRuleId String
+  representativeId String?
+  tenantId         String
+  entityType       CommissionEntityType
+  amountMinor      Int
+  currency         String               @default("JOD")
+  status           CommissionStatus     @default(PENDING)
+  createdAt        DateTime             @default(now())
+  paidAt           DateTime?
+
+  appointment    Appointment     @relation(fields: [appointmentId], references: [id])
+  commissionRule CommissionRule  @relation(fields: [commissionRuleId], references: [id])
+  representative Representative? @relation(fields: [representativeId], references: [id])
+
+  @@index([representativeId])
+  @@index([tenantId])
+  @@map("commissions")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  tenantId       String
+  appointmentId  String?
+  subscriptionId String?
+  patientId      String?
+  amountMinor    Int
+  currency       String        @default("JOD")
+  method         PaymentMethod
+  provider       String // "dev" | future gateway identifiers
+  providerRef    String?
+  status         PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  transactions Transaction[]
+
+  @@index([tenantId])
+  @@index([appointmentId])
+  @@map("payments")
+}
+
+model Transaction {
+  id          String        @id @default(uuid())
+  paymentId   String
+  type        String // AUTHORIZE | CAPTURE | REFUND | PARTIAL_REFUND | VOID
+  amountMinor Int
+  status      PaymentStatus
+  createdAt   DateTime      @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@map("transactions")
+}
+
+// ---------- Reviews, messaging, notifications, video ----------
+
+model Review {
+  id             String       @id @default(uuid())
+  appointmentId  String       @unique
+  patientId      String
+  doctorId       String
+  tenantId       String
+  ratingDoctor   Int
+  ratingStaff    Int?
+  ratingWaitTime Int?
+  ratingClinic   Int?
+  ratingOverall  Int
+  comment        String?
+  status         ReviewStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  patient     Patient     @relation(fields: [patientId], references: [id])
+  doctor      Doctor      @relation(fields: [doctorId], references: [id])
+
+  @@index([doctorId])
+  @@index([tenantId])
+  @@map("reviews")
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  type      String // PATIENT_DOCTOR | PATIENT_CLINIC | REP_CLINIC
+  createdAt DateTime @default(now())
+
+  messages Message[]
+
+  @@index([tenantId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  conversationId String
+  senderId       String
+  tenantId       String?
+  body           String
+  attachmentUrl  String?
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  tenantId  String?
+  type      String // BOOKING_CREATED | BOOKING_CONFIRMED | ... (see brief §22)
+  channel   NotificationChannel
+  payload   Json
+  status    NotificationStatus  @default(QUEUED)
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model VideoSession {
+  id              String             @id @default(uuid())
+  appointmentId   String             @unique
+  roomId          String             @unique
+  status          VideoSessionStatus @default(SCHEDULED)
+  doctorJoinedAt  DateTime?
+  patientJoinedAt DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("video_sessions")
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  beforeState Json?
+  afterState  Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  actor  User?   @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}
