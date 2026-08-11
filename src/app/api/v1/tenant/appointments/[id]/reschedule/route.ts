@@ -4,7 +4,13 @@ import { withTenantAuthorizationAny } from '@/lib/api/tenant-scope';
 import { errorResponse, okResponse } from '@/lib/api/respond';
 import { parseBody, ValidationError, validationErrorResponse } from '@/lib/api/validate';
 import { rescheduleAppointmentSchema } from '@/lib/validation/appointment';
-import { rescheduleAppointment, SlotUnavailableError, SlotTakenError, NotReschedulableError } from '@/lib/services/appointments';
+import {
+  rescheduleAppointment,
+  SlotUnavailableError,
+  SlotTakenError,
+  NotReschedulableError,
+  NotOwnAppointmentError,
+} from '@/lib/services/appointments';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSessionUser();
@@ -19,6 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return okResponse(appointment, 201);
       } catch (err) {
         if (err instanceof ValidationError) return validationErrorResponse(err);
+        if (err instanceof NotOwnAppointmentError) return errorResponse('FORBIDDEN', err.message, 403);
         if (err instanceof NotReschedulableError) return errorResponse('NOT_RESCHEDULABLE', err.message, 409);
         if (err instanceof SlotUnavailableError) return errorResponse('SLOT_UNAVAILABLE', err.message, 409);
         if (err instanceof SlotTakenError) return errorResponse('SLOT_TAKEN', err.message, 409);

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 
-export class DoctorNotInTenantError extends Error {}
+export class DoctorNotFoundError extends Error {}
 
 interface TimeRange {
   startMinutes: number;
@@ -28,10 +28,15 @@ function overlaps(a: TimeRange, b: TimeRange): boolean {
  * - `date` is treated as a UTC calendar day (`${date}T${time}:00.000Z`), not adjusted for
  *   `Country.timezone` — real timezone-aware scheduling is a later-phase refinement (see
  *   ARCHITECTURE.md "Country configuration").
+ *
+ * No tenantId parameter: this is shared by tenant-staff routes (which check the doctor
+ * belongs to the caller's tenant *before* calling this) and Phase 5's public/patient
+ * routes (any tenant's doctor is bookable by any patient) — ownership checks live in the
+ * caller, not here. See src/lib/services/appointments.ts createAppointment.
  */
-export async function getAvailableSlots(doctorId: string, branchId: string, tenantId: string, date: string) {
-  const doctor = await db.doctor.findFirst({ where: { id: doctorId, tenantId } });
-  if (!doctor) throw new DoctorNotInTenantError('Doctor does not exist or does not belong to this tenant.');
+export async function getAvailableSlots(doctorId: string, branchId: string, date: string) {
+  const doctor = await db.doctor.findUnique({ where: { id: doctorId } });
+  if (!doctor) throw new DoctorNotFoundError('Doctor does not exist.');
 
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayOfWeek = dayStart.getUTCDay();

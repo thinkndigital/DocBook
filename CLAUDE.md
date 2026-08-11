@@ -71,6 +71,26 @@ permissions. Representatives are structurally excluded from `medical_record:*` a
 `prescription:*` permissions (the list just doesn't contain them) rather than relying on a
 per-route check that could be forgotten.
 
+**Appointment tenant context comes from the doctor being booked, not the actor.**
+`createAppointment`/`getAvailableSlots`/`rescheduleAppointment` (`src/lib/services/
+appointments.ts`, `availability.ts`) take no `tenantId` parameter — they resolve it from
+the `Doctor` row. A staff actor's `tenantId` is checked *against* that (booking another
+tenant's doctor is rejected), but a `PATIENT` actor has no `tenantId` at all and must be
+able to book any tenant's doctor — this is what makes the Phase 5 patient marketplace
+work without a parallel booking implementation. Ownership for reschedule/cancel is an
+explicit check (`assertCanModify` in `appointments.ts`), not tenant-context scoping —
+patient self-service routes never call `runWithTenant`. Patients cancelling their own
+appointment goes through `cancelOwnAppointment`, deliberately separate from staff's
+`setAppointmentStatus`: a patient may only ever reach `CANCELLED`, never clinical states
+like `CHECKED_IN`/`COMPLETED`.
+
+**i18n is a `[locale]` segment, not next-intl, and only covers the patient marketplace.**
+`src/app/[locale]/` (ar/en) holds the public search/profile/booking/patient-dashboard
+pages only — `/admin`, `/tenant`, `/doctor` stay where they are, Arabic-only. Translations
+are a plain dictionary (`src/lib/i18n/dictionaries.ts`), not a library: Server Components
+call `getDictionary(locale)` and pass strings to Client Components as props. See
+ARCHITECTURE.md "i18n" for why this is narrower than Phase 1 originally sketched.
+
 **Double-booking is prevented two ways, not one.** A partial unique index
 (`appointment_slot_unique` in the init migration) on
 `(doctorId, branchId, scheduledAt) WHERE status NOT IN ('CANCELLED', 'NO_SHOW')` is the

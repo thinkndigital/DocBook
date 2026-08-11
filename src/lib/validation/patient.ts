@@ -7,3 +7,8 @@ export const registerPatientSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE']).optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
+
+/** Self-service signup — the patient chooses their own password, unlike staff-created accounts (DEFAULT_ASSIGNED_PASSWORD). */
+export const selfRegisterPatientSchema = registerPatientSchema.extend({
+  password: z.string().min(8).max(200),
+});

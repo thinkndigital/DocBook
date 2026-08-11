@@ -1,0 +1,79 @@
+import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
+import { listOwnPatientAppointments } from '@/lib/services/appointments';
+import { Badge } from '@/components/ui/badge';
+import { CancelButton } from './cancel-button';
+
+export const dynamic = 'force-dynamic';
+
+const CANCELLABLE = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_QUEUE'];
+const STATUS_TONE: Record<string, 'neutral' | 'success' | 'warning' | 'danger'> = {
+  PENDING: 'warning',
+  CONFIRMED: 'success',
+  CHECKED_IN: 'success',
+  IN_QUEUE: 'warning',
+  CALLED: 'warning',
+  IN_CONSULTATION: 'success',
+  COMPLETED: 'neutral',
+  CANCELLED: 'danger',
+  NO_SHOW: 'danger',
+  RESCHEDULED: 'neutral',
+};
+
+export default async function PatientDashboardPage({ params }: { params: { locale: Locale } }) {
+  const dict = getDictionary(params.locale);
+  const session = await getServerSession(authOptions);
+
+  if (!session) redirect(`/${params.locale}/login?callbackUrl=/${params.locale}/patient`);
+  if (session.user.role !== 'PATIENT') redirect(`/${params.locale}`);
+
+  const appointments = (await listOwnPatientAppointments(session.user.id)) ?? [];
+  const now = new Date();
+  const upcoming = appointments.filter((a) => a.scheduledAt >= now && !['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(a.status));
+  const past = appointments.filter((a) => !upcoming.includes(a));
+
+  const nameKey: 'name' | 'nameAr' = params.locale === 'ar' ? 'nameAr' : 'name';
+
+  function AppointmentRow({ appt }: { appt: (typeof appointments)[number] }) {
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4">
+        <div>
+          <p className="font-medium text-neutral-900">{appt.doctor.user.name}</p>
+          <p className="text-sm text-neutral-600">
+            {appt.service[nameKey]} — {appt.scheduledAt.toISOString().slice(0, 16).replace('T', ' ')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={STATUS_TONE[appt.status]}>{dict.patientDashboard.status[appt.status] ?? appt.status}</Badge>
+          {CANCELLABLE.includes(appt.status) && <CancelButton appointmentId={appt.id} dict={dict} />}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h1 className="mb-6 text-2xl font-bold text-neutral-900">{dict.patientDashboard.title}</h1>
+
+      <h2 className="mb-3 font-semibold text-neutral-700">{dict.patientDashboard.upcoming}</h2>
+      <div className="mb-8 flex flex-col gap-3">
+        {upcoming.length === 0 ? (
+          <p className="text-sm text-neutral-500">{dict.patientDashboard.noAppointments}</p>
+        ) : (
+          upcoming.map((appt) => <AppointmentRow key={appt.id} appt={appt} />)
+        )}
+      </div>
+
+      <h2 className="mb-3 font-semibold text-neutral-700">{dict.patientDashboard.past}</h2>
+      <div className="flex flex-col gap-3">
+        {past.length === 0 ? (
+          <p className="text-sm text-neutral-500">{dict.patientDashboard.noAppointments}</p>
+        ) : (
+          past.map((appt) => <AppointmentRow key={appt.id} appt={appt} />)
+        )}
+      </div>
+    </div>
+  );
+}

@@ -9,7 +9,7 @@ no phase ships stubs or fake data paths (§47).
 | 2 | Admin portal + tenant management (create/verify/suspend tenants, plans, cities/countries CMS) | **Delivered** |
 | 3 | Doctor + clinic management (profiles, branches, staff, services, verification workflow) | **Delivered** |
 | 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | **Delivered** |
-| 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | Not started |
+| 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | **Delivered** |
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | Not started |
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | Not started |
 | 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | Not started |
@@ -93,9 +93,45 @@ Known, intentional simplifications for this phase (see code comments in
 slot packing isn't implemented. Dates are treated as UTC calendar days, not adjusted for
 `Country.timezone` yet.
 
+## Phase 5 delivered
+
+Patients can now do everything themselves, with no staff involved: self-register with a
+password they choose (`/api/v1/auth/register` — distinct from the `DEFAULT_ASSIGNED_PASSWORD`
+pattern used for staff-created accounts), browse/search doctors publicly with no login
+required (`/[locale]/doctors`, filterable by specialty/city/gender/free-text — only
+`verified` doctors at `ACTIVE` tenants are visible, so Phase 3's verification queue now
+has a real, external consequence), view a public doctor profile
+(`/[locale]/doctors/[id]`), and book straight off the engine built in Phase 4 via a
+branch/service/date/slot picker. A patient dashboard (`/[locale]/patient`) lists
+upcoming/past appointments and can cancel.
+
+This required a real refactor, not just new routes: Phase 4's booking/availability
+functions assumed a tenant-scoped staff actor. A patient has no tenant and must be able to
+book *any* tenant's doctor, so `createAppointment`/`getAvailableSlots`/
+`rescheduleAppointment` now derive the tenant from the doctor being booked, with an
+explicit ownership check (`assertCanModify`) replacing the implicit protection tenant
+context gave staff routes for free. `cancelOwnAppointment` is deliberately a separate,
+narrower function from staff's `setAppointmentStatus` — a patient can only ever cancel,
+never set clinical states like `CHECKED_IN`/`COMPLETED`.
+
+**i18n note**: real ar/en bilingual UI with correct RTL/LTR, but scoped to the new
+marketplace/patient pages under `src/app/[locale]/`, not retrofitted onto the Phases 2–4
+staff dashboards — see ARCHITECTURE.md "i18n" for why, and the one known gap (root
+`<html dir>` stays fixed; the `[locale]` layout's wrapper `dir` handles real layout
+direction for everything inside it).
+
+Verified end-to-end against a live Postgres instance: registered a real patient, watched a
+doctor disappear from and reappear in public search as `verified` was toggled off/on (and
+confirmed this happens on every request, not a stale build-time cache, despite Next's
+build output cosmetically labeling the route "SSG"), booked an appointment through the
+actual patient API, confirmed it appears correctly in the doctor's own appointment list
+(same underlying engine, both sides see the same row), cancelled it and confirmed the slot
+reopened, and confirmed a second patient gets 403 trying to cancel someone else's
+appointment.
+
 ## Immediate next step
 
-Phase 5 (patient marketplace) — public search, doctor/clinic profile pages, i18n ar/en
-RTL/LTR, and a patient-facing self-service booking UI on top of the engine built in this
-phase — is next. Everything booking-related so far has been staff-driven (receptionist/
-tenant admin); Phase 5 is what lets an actual patient find a doctor and book themselves.
+Phase 6 (representative portal) is next — assigned accounts, book-on-behalf, commission
+dashboard, and the audit-limited access the brief calls out explicitly (representatives
+must never reach `medical_record:*`/`prescription:*`, already structurally impossible per
+Phase 1's permission matrix, not just convention).

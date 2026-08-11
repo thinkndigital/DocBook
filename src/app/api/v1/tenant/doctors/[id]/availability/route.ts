@@ -2,7 +2,8 @@ import type { NextRequest } from 'next/server';
 import { getSessionUser } from '@/lib/api/session';
 import { withTenantAuthorizationAny } from '@/lib/api/tenant-scope';
 import { errorResponse, okResponse } from '@/lib/api/respond';
-import { getAvailableSlots, DoctorNotInTenantError } from '@/lib/services/availability';
+import { getAvailableSlots } from '@/lib/services/availability';
+import { db } from '@/lib/db';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSessionUser();
@@ -12,12 +13,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!branchId || !date) {
       return errorResponse('MISSING_PARAMS', 'branchId and date query params are required.', 400);
     }
-    try {
-      const slots = await getAvailableSlots(params.id, branchId, user.tenantId, date);
-      return okResponse({ date, branchId, slots });
-    } catch (err) {
-      if (err instanceof DoctorNotInTenantError) return errorResponse('DOCTOR_NOT_FOUND', err.message, 404);
-      throw err;
-    }
+    // getAvailableSlots no longer takes a tenantId (see Phase 5 refactor for cross-tenant
+    // patient booking) — the tenant-ownership check happens here instead.
+    const doctor = await db.doctor.findFirst({ where: { id: params.id, tenantId: user.tenantId } });
+    if (!doctor) return errorResponse('DOCTOR_NOT_FOUND', 'Doctor does not exist or does not belong to this tenant.', 404);
+
+    const slots = await getAvailableSlots(params.id, branchId, date);
+    return okResponse({ date, branchId, slots });
   });
 }

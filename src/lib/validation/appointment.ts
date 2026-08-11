@@ -40,3 +40,17 @@ export const appointmentStatusSchema = z.object({
 export const rescheduleAppointmentSchema = z.object({
   scheduledAt: z.string().datetime(),
 });
+
+/** Patient self-booking — no patientId/newPatient; createAppointment resolves the caller's own patient record for PATIENT actors. */
+export const patientBookAppointmentSchema = z.object({
+  doctorId: z.string().uuid(),
+  branchId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  scheduledAt: z.string().datetime(),
+  type: z.enum(['IN_PERSON', 'VIDEO', 'FOLLOW_UP', 'EMERGENCY', 'HOME_VISIT']).default('IN_PERSON'),
+  notes: z.string().max(1000).optional(),
+});
+
+export const cancelAppointmentSchema = z.object({
+  cancelReason: z.string().max(500).optional(),
+});

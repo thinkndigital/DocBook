@@ -20,7 +20,7 @@ most scalable production-ready option and document it rather than stall.
 | ORM | Prisma | Typed schema, migrations, works cleanly with Postgres transactions |
 | Auth | NextAuth (Credentials + JWT session), custom RBAC layer | Session carries `role`, `tenantId`, `permissions` claims |
 | Styling | Tailwind CSS + shadcn/ui pattern | Matches "design system" requirement (§41), fast to build accessible components |
-| i18n | next-intl (ar default RTL, en LTR) — added Phase 5 (patient marketplace UI) | Arabic-first per country config, not string-only translation |
+| i18n | Hand-rolled dictionary (`src/lib/i18n/dictionaries.ts`) under a `[locale]` segment — added Phase 5, see note below | Arabic-first per country config, not string-only translation |
 | File storage | Storage provider interface; local disk adapter for dev, S3-compatible adapter for prod | Keeps medical document storage swappable, satisfies §12/§48 |
 | Payments | `PaymentProvider` interface; `DevPaymentAdapter` (simulates auth/capture/refund) as the only concrete adapter until a real Jordanian gateway is selected | §15 explicitly forbids hard-coding one gateway |
 | Notifications | `NotificationProvider` interface per channel (email/SMS/WhatsApp/push/in-app); console/dev adapters wired first | §22 |
@@ -77,6 +77,30 @@ columns needed.
 reads phone format, currency, tax rules, and enabled payment providers from `Country` +
 `Tenant.countryId` at runtime. Jordan is the seeded default; nothing about the schema or
 route logic assumes Jordan.
+
+## i18n (ar/en, RTL/LTR) **(decision, amended in Phase 5)**
+
+Phase 1's stack table originally named next-intl. Actually wiring it up in Phase 5 meant
+either (a) moving the entire app — admin/tenant/doctor dashboards included — under a
+`[locale]` route segment so the root layout's `<html lang dir>` could be locale-aware, or
+(b) accepting a narrower scope. Restructuring every route built in Phases 2–4 was judged
+not worth it for a phase whose actual job is the *patient-facing* marketplace: the admin/
+tenant/doctor portals are internal tools used by staff who onboarded in Arabic, not
+something the brief's bilingual requirement is really about.
+
+What's actually built: a `src/app/[locale]/` segment (`ar` | `en`, `generateStaticParams`
+covers both) holding only the new marketplace/patient pages — home, doctor search, doctor
+profile, register, login (marketplace-side), and the patient dashboard. Translations come
+from a plain typed dictionary (`src/lib/i18n/dictionaries.ts`), not a library — Server
+Components call `getDictionary(locale)` and pass the strings a Client Component needs as
+props, which is sufficient for this scope (no ICU plural rules or rich formatting needed)
+and avoids taking on next-intl's middleware/routing configuration on top of the existing
+custom auth middleware. `[locale]/layout.tsx` sets `dir`/`lang` on a wrapping element,
+which correctly drives RTL/LTR layout and Tailwind's logical-property utilities for
+everything inside it — the one honest gap is that the outermost `<html>` tag (in the
+single shared root `src/app/layout.tsx`) stays fixed at `dir="rtl"`, since Next.js allows
+only one root layout. Fixing that fully requires the Phase-6+-sized migration described
+above; flagged here rather than silently left undocumented.
 
 ## Repository layout
 

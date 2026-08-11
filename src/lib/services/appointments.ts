@@ -44,28 +44,52 @@ async function nextQueueToken(doctorId: string, branchId: string, date: string):
   return count + 1;
 }
 
-export async function createAppointment(input: CreateAppointmentInput, actor: SessionUser & { tenantId: string }) {
-  const [doctor, branch, service] = await Promise.all([
-    db.doctor.findFirst({ where: { id: input.doctorId, tenantId: actor.tenantId } }),
-    db.branch.findFirst({ where: { id: input.branchId, tenantId: actor.tenantId } }),
-    db.service.findFirst({ where: { id: input.serviceId, tenantId: actor.tenantId } }),
+/**
+ * Shared by tenant-staff booking (receptionist/tenant admin booking on behalf of a
+ * patient) and patient self-booking (Phase 5). tenantId is derived from the doctor being
+ * booked, not from the actor — a PATIENT has no tenantId and must be able to book any
+ * tenant's doctor; a staff actor's tenantId is checked *against* the doctor's tenantId
+ * instead of used to look the doctor up, so booking another tenant's doctor 404s rather
+ * than silently cross-linking.
+ */
+export async function createAppointment(input: CreateAppointmentInput, actor: SessionUser) {
+  const doctor = await db.doctor.findUnique({ where: { id: input.doctorId } });
+  if (!doctor) throw new InvalidReferenceError('Doctor does not exist.');
+  if (actor.tenantId && actor.tenantId !== doctor.tenantId) {
+    throw new InvalidReferenceError('Doctor does not exist or does not belong to this tenant.');
+  }
+  const tenantId = doctor.tenantId;
+
+  const [branch, service] = await Promise.all([
+    db.branch.findFirst({ where: { id: input.branchId, tenantId } }),
+    db.service.findFirst({ where: { id: input.serviceId, tenantId } }),
   ]);
-  if (!doctor || !branch || !service) {
-    throw new InvalidReferenceError('Doctor, branch, or service does not exist or does not belong to this tenant.');
+  if (!branch || !service) {
+    throw new InvalidReferenceError('Branch or service does not exist or does not belong to this doctor\'s tenant.');
   }
 
-  let patientId = input.patientId;
-  if (!patientId && input.newPatient) {
-    try {
-      const patient = await registerPatient(input.newPatient, actor);
-      patientId = patient.id;
-    } catch (err) {
-      if (err instanceof PatientConflictError) {
-        const existing = await findPatientByEmail(input.newPatient.email);
-        if (!existing) throw err;
-        patientId = existing.id;
-      } else {
-        throw err;
+  let patientId: string | undefined;
+  if (actor.role === 'PATIENT') {
+    // Patients can only ever book for themselves in this phase — family-member booking
+    // (brief §2 "manage family members") is deferred; patientId/newPatient in the input
+    // are ignored for this role regardless of what a client sends.
+    const ownPatient = await db.patient.findUnique({ where: { userId: actor.id } });
+    if (!ownPatient) throw new InvalidReferenceError('No patient profile for this account.');
+    patientId = ownPatient.id;
+  } else {
+    patientId = input.patientId;
+    if (!patientId && input.newPatient) {
+      try {
+        const patient = await registerPatient(input.newPatient, actor as SessionUser & { tenantId: string });
+        patientId = patient.id;
+      } catch (err) {
+        if (err instanceof PatientConflictError) {
+          const existing = await findPatientByEmail(input.newPatient.email);
+          if (!existing) throw err;
+          patientId = existing.id;
+        } else {
+          throw err;
+        }
       }
     }
   }
@@ -77,7 +101,7 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
   const scheduledAt = new Date(input.scheduledAt);
   const date = dateKey(scheduledAt);
 
-  const available = await getAvailableSlots(input.doctorId, input.branchId, actor.tenantId, date);
+  const available = await getAvailableSlots(input.doctorId, input.branchId, date);
   if (!available.includes(scheduledAt.toISOString())) {
     throw new SlotUnavailableError('This slot is not available.');
   }
@@ -90,7 +114,7 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
       async (tx) =>
         tx.appointment.create({
           data: {
-            tenantId: actor.tenantId,
+            tenantId,
             branchId: input.branchId,
             doctorId: input.doctorId,
             patientId,
@@ -112,7 +136,7 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
 
     await recordAudit({
       actorUserId: actor.id,
-      tenantId: actor.tenantId,
+      tenantId,
       action: 'APPOINTMENT_CREATED',
       entityType: 'Appointment',
       entityId: appointment.id,
@@ -207,9 +231,23 @@ export async function setAppointmentStatus(id: string, input: AppointmentStatusI
 
 const NON_RESCHEDULABLE: AppointmentStatus[] = ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'];
 
-export async function rescheduleAppointment(id: string, newScheduledAtIso: string, actor: SessionUser & { tenantId: string }) {
+export class NotOwnAppointmentError extends Error {}
+
+async function assertCanModify(before: NonNullable<Awaited<ReturnType<typeof getAppointment>>>, actor: SessionUser) {
+  if (actor.role === 'PATIENT') {
+    const ownPatient = await db.patient.findUnique({ where: { userId: actor.id } });
+    if (!ownPatient || ownPatient.id !== before.patientId) {
+      throw new NotOwnAppointmentError('This appointment does not belong to you.');
+    }
+  } else if (actor.tenantId && actor.tenantId !== before.tenantId) {
+    throw new NotOwnAppointmentError('This appointment does not belong to your tenant.');
+  }
+}
+
+export async function rescheduleAppointment(id: string, newScheduledAtIso: string, actor: SessionUser) {
   const before = await getAppointment(id);
   if (!before) return null;
+  await assertCanModify(before, actor);
 
   if (NON_RESCHEDULABLE.includes(before.status)) {
     throw new NotReschedulableError(`Cannot reschedule an appointment with status ${before.status}.`);
@@ -218,7 +256,7 @@ export async function rescheduleAppointment(id: string, newScheduledAtIso: strin
   const newScheduledAt = new Date(newScheduledAtIso);
   const date = dateKey(newScheduledAt);
 
-  const available = await getAvailableSlots(before.doctorId, before.branchId, actor.tenantId, date);
+  const available = await getAvailableSlots(before.doctorId, before.branchId, date);
   // The slot currently held by this appointment is (correctly) excluded from availability
   // by getAvailableSlots — add it back in so rescheduling to the same day doesn't
   // spuriously see its own old slot as "available" twice, and so a same-slot "reschedule"
@@ -283,4 +321,53 @@ export async function listOwnDoctorAppointments(userId: string, filters: { date?
   const doctor = await db.doctor.findUnique({ where: { userId } });
   if (!doctor) return null;
   return listAppointments({ doctorId: doctor.id, date: filters.date });
+}
+
+export async function listOwnPatientAppointments(userId: string) {
+  const patient = await db.patient.findUnique({ where: { userId } });
+  if (!patient) return null;
+  return db.appointment.findMany({
+    where: { patientId: patient.id },
+    include: APPOINTMENT_INCLUDE,
+    orderBy: { scheduledAt: 'desc' },
+  });
+}
+
+/**
+ * Deliberately separate from setAppointmentStatus (used by staff): a patient may only
+ * ever cancel their own appointment, never set CHECKED_IN/CALLED/COMPLETED/etc, which are
+ * clinical/front-desk actions. setAppointmentStatus also relies on the ambient tenant
+ * context to keep staff within their own tenant (getAppointment is scoped when called
+ * inside runWithTenant) — patient routes have no tenant context at all, so this function
+ * does its own explicit ownership check rather than assuming that protection exists.
+ */
+export async function cancelOwnAppointment(id: string, cancelReason: string | undefined, actor: SessionUser) {
+  const before = await getAppointment(id);
+  if (!before) return null;
+  await assertCanModify(before, actor);
+
+  const allowed = ALLOWED_STATUS_TRANSITIONS[before.status];
+  if (!allowed.includes('CANCELLED')) {
+    throw new InvalidStatusTransitionError(`Cannot cancel an appointment with status ${before.status}.`);
+  }
+
+  const appointment = await db.appointment.update({
+    where: { id },
+    data: { status: 'CANCELLED', cancelReason },
+    include: APPOINTMENT_INCLUDE,
+  });
+
+  await db.queueEvent.create({ data: { appointmentId: id, status: 'CANCELLED' } });
+
+  await recordAudit({
+    actorUserId: actor.id,
+    tenantId: before.tenantId,
+    action: 'APPOINTMENT_CANCELLED',
+    entityType: 'Appointment',
+    entityId: id,
+    beforeState: { status: before.status },
+    afterState: { status: 'CANCELLED', cancelReason },
+  });
+
+  return appointment;
 }
