@@ -17,9 +17,24 @@ research only from public healthcare marketplaces, no shared branding/code/copy.
 
 ## Status
 
-**Phase 1 of 14** (see ROADMAP.md): architecture, database schema, auth, RBAC, tenant
-isolation, country configuration. Not yet a running product — no portals, no booking flow
-yet. This is the foundation the rest builds on.
+**Phases 1–10 of 14 delivered** (see ROADMAP.md). Working today:
+
+- Schema, auth, RBAC, row-level tenant isolation, country configuration
+- Platform admin portal; clinic/hospital management (branches, doctors, staff, services)
+- The appointment engine, including the double-booking guarantee (partial unique index +
+  `SERIALIZABLE` transaction — verified with concurrent bookings, 1 succeeds and the rest 409)
+- The bilingual (ar/en, RTL/LTR) patient marketplace and booking flow
+- The representative portal, and payments, subscriptions, and the configurable commission engine
+- Medical records and prescriptions, encrypted at rest and gated by treatment relationship
+- Notifications across channels behind a provider abstraction, plus a read-only doctor iCal feed
+- The AI layer: symptom triage, patient assistant, clinic briefing, and no-show risk scoring
+
+Not built yet: analytics (11), security hardening and the test suite (12), SEO/performance
+(13), production deployment (14).
+
+There is no test suite yet — that is Phase 12. Each phase so far has been validated by hand
+against a live Postgres and a production build; what was checked is recorded per phase in
+ROADMAP.md.
 
 ## Quickstart
 

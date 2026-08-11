@@ -199,6 +199,99 @@ async function main() {
     },
   });
 
+  /**
+   * Additional verified doctors across distinct specialties.
+   *
+   * Not decoration: the Phase 10 symptom checker maps a description to a specialty and
+   * then resolves real doctors from the marketplace query. With a single general-practice
+   * doctor seeded, every triage result looks identical and the feature is impossible to
+   * evaluate — a dental complaint would correctly pick Dentistry and then show an empty
+   * shortlist. These give each of the common triage paths something real to land on.
+   */
+  const extraDoctors = [
+    {
+      email: 'dr.omar@docbook.dev',
+      name: 'Dr. Omar Nassar',
+      nameAr: 'د. عمر نصار',
+      slug: 'dentistry',
+      license: 'JO-DEN-20117',
+      years: 12,
+      gender: 'MALE' as const,
+      priceMinor: 2500,
+      bio: 'Dentist with a focus on restorative and emergency dental care.',
+      bioAr: 'طبيب أسنان متخصص في الترميم وحالات الأسنان الطارئة.',
+    },
+    {
+      email: 'dr.rana@docbook.dev',
+      name: 'Dr. Rana Khalil',
+      nameAr: 'د. رنا خليل',
+      slug: 'dermatology',
+      license: 'JO-DER-30442',
+      years: 7,
+      gender: 'FEMALE' as const,
+      priceMinor: 3000,
+      bio: 'Dermatologist treating acne, eczema, and hair loss.',
+      bioAr: 'طبيبة جلدية تعالج حب الشباب والإكزيما وتساقط الشعر.',
+    },
+    {
+      email: 'dr.samir@docbook.dev',
+      name: 'Dr. Samir Odeh',
+      nameAr: 'د. سمير عودة',
+      slug: 'cardiology',
+      license: 'JO-CAR-40988',
+      years: 18,
+      gender: 'MALE' as const,
+      priceMinor: 4500,
+      bio: 'Cardiologist managing hypertension and arrhythmia follow-up.',
+      bioAr: 'طبيب قلب يتابع ارتفاع ضغط الدم واضطراب نظم القلب.',
+    },
+  ];
+
+  for (const entry of extraDoctors) {
+    const specialty = specialties.find((s) => s.slug === entry.slug);
+    if (!specialty) continue;
+
+    const user = await prisma.user.create({
+      data: {
+        tenantId: clinicTenant.id,
+        email: entry.email,
+        passwordHash,
+        role: UserRole.DOCTOR,
+        name: entry.name,
+        nameAr: entry.nameAr,
+        status: 'ACTIVE',
+      },
+    });
+
+    await prisma.doctor.create({
+      data: {
+        userId: user.id,
+        tenantId: clinicTenant.id,
+        specialtyId: specialty.id,
+        licenseNumber: entry.license,
+        yearsExperience: entry.years,
+        bio: entry.bio,
+        bioAr: entry.bioAr,
+        gender: entry.gender,
+        languages: ['ar', 'en'],
+        verified: true,
+        verificationStatus: 'VERIFIED',
+        consultationPriceMinor: entry.priceMinor,
+        branches: { create: { branchId: branch.id } },
+        schedules: {
+          create: [1, 2, 3, 4, 5].map((dayOfWeek) => ({
+            branchId: branch.id,
+            dayOfWeek,
+            startTime: '09:00',
+            endTime: '17:00',
+            slotDurationMinutes: 20,
+            bufferMinutes: 5,
+          })),
+        },
+      },
+    });
+  }
+
   const patientUser = await prisma.user.create({
     data: {
       email: 'patient@docbook.dev',

@@ -102,6 +102,44 @@ single shared root `src/app/layout.tsx`) stays fixed at `dir="rtl"`, since Next.
 only one root layout. Fixing that fully requires the Phase-6+-sized migration described
 above; flagged here rather than silently left undocumented.
 
+## AI layer **(decision, Phase 10)**
+
+Behind an `AiAssistant` interface (`src/lib/ai/provider.ts`) with two concrete adapters:
+`RuleBasedAssistant` (default; keyword triage over the tenant's real `Specialty` rows, no
+network, no vendor) and `ClaudeAssistant` (Anthropic Messages API over plain `fetch`).
+
+Unlike `getPaymentProvider()`, the rule-based adapter is **allowed in production**. It is
+not a simulation of a real assistant — it does genuine bilingual triage against real data —
+and health-data residency rules in several target GCC markets make "send no symptom text to
+a third party" a requirement rather than a downgrade. `AI_PROVIDER=claude` with no key is
+still a hard error, because that is a misconfiguration rather than a choice.
+
+Four decisions carry the safety argument:
+
+1. **The interface has no generic `complete(prompt)` method.** Every method is a constrained
+   task with typed input and output. A general completion method would make it trivial for a
+   future route to ship arbitrary patient text to a vendor with no single place to enforce
+   grounding.
+2. **Triage returns specialty *slugs* from a closed list**, which the service layer filters
+   against the actual `Specialty` rows before resolving doctors through the ordinary
+   marketplace query. A hallucinated or prompt-injected specialty, doctor, clinic, or price
+   is structurally impossible to surface — verified in Phase 10 by feeding the adapter an
+   invented slug and an injection payload and confirming neither reaches the response.
+3. **Emergencies never depend on the model.** `detectRedFlags` (`src/lib/ai/safety.ts`) is
+   deterministic Arabic/English phrase matching that runs before and independently of any
+   provider call, and its verdict is OR-ed with the model's — the model can raise an alarm
+   our keywords miss, never lower one they caught. When it fires, booking suggestions are
+   suppressed entirely rather than shown beside emergency guidance.
+4. **No-show prediction is deliberately not an LLM call.** See the decision note at the top
+   of `src/lib/services/no-show-risk.ts`: a clinic acts on that number, so it is a
+   transparent additive model over the patient's own attendance history that returns every
+   contributing factor in both languages. It also means scoring a day's schedule sends
+   nothing off-platform.
+
+Provider failure degrades rather than errors: a malformed response, a 500, or the 15-second
+timeout all fall back to deterministic matching with a `degraded` flag the UI surfaces
+honestly.
+
 ## Repository layout
 
 ```

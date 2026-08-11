@@ -13,7 +13,39 @@ const PUBLIC_DOCTOR_WHERE_BASE: Prisma.DoctorWhereInput = {
   tenant: { status: 'ACTIVE' },
 };
 
-const PUBLIC_DOCTOR_INCLUDE = {
+/**
+ * Explicit field list for anything served to the public.
+ *
+ * This was an `include`, which returns every scalar column on `Doctor` — and since Phase 9
+ * that has included `calendarFeedToken`, the bearer credential for a doctor's private iCal
+ * feed. Anyone hitting `/api/v1/public/doctors` could read it and subscribe to that
+ * doctor's full appointment calendar without authenticating. It only ever returned null in
+ * practice because no seeded doctor had generated a feed yet, which is exactly why it
+ * survived review.
+ *
+ * A `select` is now the rule here rather than a preference: with `include`, every column
+ * added to `Doctor` in future is published to the internet by default, and the next
+ * credential-shaped column repeats this. With `select`, a new field is private until
+ * somebody deliberately lists it.
+ */
+const PUBLIC_DOCTOR_SELECT = {
+  id: true,
+  tenantId: true,
+  specialtyId: true,
+  subSpecialty: true,
+  yearsExperience: true,
+  bio: true,
+  bioAr: true,
+  gender: true,
+  languages: true,
+  verified: true,
+  consultationPriceMinor: true,
+  currency: true,
+  ratingAverage: true,
+  ratingCount: true,
+  // Deliberately omitted: calendarFeedToken (a credential), licenseNumber (identity
+  // document number — the `verified` badge is what a patient needs, not the number itself),
+  // userId, verificationStatus, and the timestamp/soft-delete columns.
   user: { select: { name: true, nameAr: true } },
   specialty: true,
   tenant: { select: { id: true, name: true, nameAr: true, type: true } },
@@ -46,7 +78,7 @@ export async function searchDoctors(filters: DoctorSearchFilters) {
 
   const items = await db.doctor.findMany({
     where,
-    include: PUBLIC_DOCTOR_INCLUDE,
+    select: PUBLIC_DOCTOR_SELECT,
     orderBy: [{ ratingAverage: 'desc' }, { createdAt: 'desc' }],
     take: filters.limit + 1,
     ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
@@ -59,7 +91,7 @@ export async function searchDoctors(filters: DoctorSearchFilters) {
 }
 
 export async function getPublicDoctor(id: string) {
-  return db.doctor.findFirst({ where: { id, ...PUBLIC_DOCTOR_WHERE_BASE }, include: PUBLIC_DOCTOR_INCLUDE });
+  return db.doctor.findFirst({ where: { id, ...PUBLIC_DOCTOR_WHERE_BASE }, select: PUBLIC_DOCTOR_SELECT });
 }
 
 export async function listPublicSpecialties() {

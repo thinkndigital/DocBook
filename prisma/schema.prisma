@@ -143,6 +143,12 @@ enum NotificationStatus {
   READ
 }
 
+enum AiInteractionKind {
+  SYMPTOM_TRIAGE
+  PATIENT_ASSISTANT
+  CLINIC_BRIEFING
+}
+
 enum VideoSessionStatus {
   SCHEDULED
   WAITING_ROOM
@@ -221,6 +227,7 @@ model Tenant {
   auditLogs                 AuditLog[]
   commissionRules           CommissionRule[]
   representativeAssignments RepresentativeAssignment[]
+  aiInteractions            AiInteraction[]
 
   @@index([countryId])
   @@map("tenants")
@@ -287,6 +294,7 @@ model User {
   auditLogs      AuditLog[]      @relation("AuditActor")
   notifications  Notification[]
   sentMessages   Message[]       @relation("MessageSender")
+  aiInteractions AiInteraction[]
 
   @@index([tenantId])
   @@map("users")
@@ -881,6 +889,57 @@ model VideoSession {
   appointment Appointment @relation(fields: [appointmentId], references: [id])
 
   @@map("video_sessions")
+}
+
+// ---------- AI (Phase 10) ----------
+
+/// Ledger of AI usage. Three jobs, one table:
+///   1. Rate limiting — the limiter counts rows in a window, so the limit holds across
+///      every app instance instead of per-process like an in-memory bucket would.
+///   2. Cost/latency observability per tenant and kind.
+///   3. Governance — which disclaimer version a user was shown, and whether a red flag
+///      fired, is answerable months later.
+///
+/// Deliberately stores NO prompt or response content. A symptom description is among the
+/// most sensitive free text in the product; keeping a permanent, unencrypted copy of it in
+/// a rate-limiting table would create exactly the exposure the clinical-field encryption in
+/// Phase 8 exists to prevent. What is kept is metadata: how many characters, which
+/// specialties were suggested (slugs — already public catalogue data), and how it went.
+model AiInteraction {
+  id       String            @id @default(uuid())
+  kind     AiInteractionKind
+  /// Null for anonymous public triage; set for authenticated calls.
+  userId   String?
+  /// Null for patient/public calls — matches the AuditLog/Notification optional-tenant pattern.
+  tenantId String?
+  /// Rate-limit subject: user id when authenticated, hashed client IP when not. Hashed so
+  /// the ledger never becomes a log of who searched which symptoms from which address.
+  actorKey String
+  /// Adapter that served it: "rule-based" | "claude" | ... Lets a cost or quality question
+  /// be scoped to the adapter that was actually live at the time.
+  provider String
+  /// Length of the user's input. Enough for cost/abuse analysis, keeps none of the text.
+  inputChars Int     @default(0)
+  /// Specialty slugs returned, for triage. Public catalogue data, not clinical content.
+  suggestedSlugs String[]
+  /// True when the deterministic red-flag check fired — the number that matters when
+  /// asking "is the emergency path actually reaching people".
+  redFlagged     Boolean @default(false)
+  /// True when a likely prompt-injection attempt was detected (logged, not blocked).
+  injectionFlagged Boolean @default(false)
+  /// Disclaimer wording the user was shown with this response.
+  disclaimerVersion String
+  latencyMs         Int      @default(0)
+  /// False when the provider failed and a deterministic fallback served the response.
+  succeeded         Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([actorKey, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("ai_interactions")
 }
 
 // ---------- Audit ----------

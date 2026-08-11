@@ -51,6 +51,23 @@ normalization) buys flexibility we don't need yet and costs a join on every auth
 check. `src/lib/rbac.ts` holds a static `ROLE_PERMISSIONS` map. If a future phase needs
 per-tenant custom roles, that's the trigger to move it into the DB — not before.
 
+## AI usage ledger (Phase 10)
+
+`AiInteraction` serves three jobs from one table: rate limiting (counting rows in a window
+holds across app replicas, unlike an in-memory bucket), cost/latency observability, and
+governance (which disclaimer version a user was shown, and whether the emergency path
+fired).
+
+It deliberately stores **no prompt or response content**. Symptom descriptions are among the
+most sensitive free text in the product, and keeping a permanent unencrypted copy in a
+rate-limiting table would undo the Phase 8 clinical-encryption boundary. What it keeps is
+metadata: input *length*, suggested specialty slugs (public catalogue data), red-flag and
+injection flags, latency, provider, and a salted hash of the rate-limit subject.
+
+`tenantId` is nullable — public triage and patient-assistant calls have no tenant — so it
+belongs to `TENANT_OPTIONAL_MODELS` in `src/lib/tenant.ts`, alongside `AuditLog` and
+`Notification`.
+
 ## Double-booking guarantee
 
 See ARCHITECTURE.md. Enforced by a `SERIALIZABLE` transaction + row lock at booking time,

@@ -43,6 +43,13 @@ export type Permission =
   | 'report:read_tenant'
   | 'analytics:read_tenant'
   | 'billing:manage_tenant'
+  // AI (Phase 10). `ai:assistant` is patient-scoped and covers only questions about the
+  // patient's own bookings. `ai:clinic_insights` is operational — the briefing and
+  // no-show scoring — and is deliberately NOT granted to REPRESENTATIVE: a rep seeing a
+  // clinic's attendance patterns and revenue is a commercial leak, and §4 already keeps
+  // them structurally out of anything patient-level.
+  | 'ai:assistant'
+  | 'ai:clinic_insights'
   // Receptionist
   | 'appointment:create_for_patient'
   | 'appointment:checkin'
@@ -85,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'notification:read_own',
     'video_session:join_own',
     'queue:read_own',
+    'ai:assistant',
   ],
   DOCTOR: [
     'doctor_profile:update_own',
@@ -100,6 +108,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'video_session:join_own',
     'queue:read_own',
     'notification:read_own',
+    'ai:clinic_insights',
   ],
   TENANT_ADMIN: [
     'tenant:manage_own',
@@ -114,6 +123,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'analytics:read_tenant',
     'billing:manage_tenant',
     'notification:read_own',
+    'ai:clinic_insights',
   ],
   RECEPTIONIST: [
     'appointment:create_for_patient',
@@ -124,6 +134,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'patient:register',
     'payment:collect',
     'notification:read_own',
+    'ai:clinic_insights',
   ],
   REPRESENTATIVE: [
     'representative_account:manage_assigned',

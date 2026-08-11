@@ -54,6 +54,46 @@ Healthcare data. Treated as sensitive by default — see §12, §28, §40 of the
   a 10 MB cap, and random UUID storage keys never derived from the filename. *Verified*: a
   Windows executable renamed to `.pdf` and declared `application/pdf` was rejected.
 
+## What leaves the platform (Phase 10, AI)
+
+The AI layer is the only component that can send data to a third party, so the boundary is
+stated explicitly rather than left to per-call judgement.
+
+**Sent to the model, when `AI_PROVIDER=claude`:**
+- The symptom text the user typed, after `redactForModel` strips emails, phone numbers, and
+  long digit runs (national ids, card-shaped numbers).
+- The platform's public specialty catalogue (slug + names).
+- For the patient assistant: the caller's own upcoming appointment times, doctor names,
+  branch addresses, status, and price — the same facts already on their dashboard.
+- For the clinic briefing: counts, percentages, and money totals already computed in SQL.
+
+**Never sent, by construction rather than by policy:**
+- Diagnoses, clinical notes, prescriptions, medications, attachments. No code path reads
+  `MedicalRecord`, `Prescription`, or `Attachment` into a prompt.
+- The `Appointment.notes` free-text field — `buildPatientContext` uses an explicit `select`,
+  not an `include`, precisely so this field and every future column stay out by default.
+- Patient names, emails, phone numbers, national ids, patient ids, appointment ids.
+- Service names in the clinic briefing (a service name like "oncology follow-up" is
+  clinically revealing), which are aggregated away rather than listed.
+
+This is a stricter line than Phase 8's clinical access control, and the two are
+complementary: `clinical-access.ts` decides who may read clinical data *inside* the
+platform; this decides what may leave it. A doctor who legitimately passes that gate still
+has no path that forwards their patient's diagnoses to a model.
+
+**The AI usage ledger stores no content.** `ai_interactions` keeps kind, provider, input
+*length*, suggested specialty slugs (public catalogue data), red-flag and injection flags,
+latency, and the disclaimer version shown. The rate-limit subject is a salted SHA-256 hash
+of the user id or client IP — limiting needs equality, not the value, and storing raw IPs
+against symptom-search timestamps would build a re-identification risk with no operational
+upside. *Verified in Phase 10*: after running triage requests containing "chest", "ضرس",
+and "kill myself", grepping the entire table returns zero matches for any of them, and zero
+rows whose actor key resembles an IP address.
+
+**Disclaimers are attached in the service layer**, in the same object as the AI output, so
+no route or page can render a suggestion without one. They are versioned
+(`MEDICAL_DISCLAIMER_VERSION`) and every ledger row records which version the user saw.
+
 ## Deferred to later phases, scoped now so nothing is designed out
 
 - **2FA (TOTP) for admins** — `User.twoFactorSecret` + `twoFactorEnabled` columns exist

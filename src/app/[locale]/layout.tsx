@@ -40,6 +40,9 @@ export default async function LocaleLayout({
             <Link href={`/${locale}/doctors`} className="text-neutral-700 hover:text-brand-700">
               {dict.nav.doctors}
             </Link>
+            <Link href={`/${locale}/symptom-check`} className="text-neutral-700 hover:text-brand-700">
+              {dict.symptomCheck.navLabel}
+            </Link>
             {session?.user.role === 'PATIENT' ? (
               <>
                 <Link href={`/${locale}/patient`} className="text-neutral-700 hover:text-brand-700">

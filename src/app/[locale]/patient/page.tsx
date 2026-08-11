@@ -5,6 +5,7 @@ import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
 import { listOwnPatientAppointments } from '@/lib/services/appointments';
 import { Badge } from '@/components/ui/badge';
 import { CancelButton } from './cancel-button';
+import { AssistantPanel } from './assistant-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,10 @@ export default async function PatientDashboardPage({ params }: { params: { local
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">{dict.patientDashboard.title}</h1>
+
+      <div className="mb-8">
+        <AssistantPanel locale={params.locale} />
+      </div>
 
       <h2 className="mb-3 font-semibold text-neutral-700">{dict.patientDashboard.upcoming}</h2>
       <div className="mb-8 flex flex-col gap-3">

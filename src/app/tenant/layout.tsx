@@ -11,6 +11,7 @@ const NAV = [
   { href: '/tenant/staff', label: 'الموظفون' },
   { href: '/tenant/services', label: 'الخدمات' },
   { href: '/tenant/billing', label: 'الفوترة والاشتراك' },
+  { href: '/tenant/insights', label: 'رؤى تشغيلية' },
 ];
 
 export default async function TenantLayout({ children }: { children: React.ReactNode }) {

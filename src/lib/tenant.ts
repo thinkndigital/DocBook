@@ -38,7 +38,16 @@ const TENANT_REQUIRED_MODELS = new Set([
 ]);
 
 /** Models with a nullable `tenantId` — scoped when the caller has one, left alone (or explicitly null) otherwise. */
-const TENANT_OPTIONAL_MODELS = new Set(['CommissionRule', 'Commission', 'Conversation', 'Notification', 'AuditLog']);
+const TENANT_OPTIONAL_MODELS = new Set([
+  'CommissionRule',
+  'Commission',
+  'Conversation',
+  'Notification',
+  'AuditLog',
+  // Public symptom triage and patient-assistant calls have no tenant at all; a clinic
+  // briefing does. Same shape as AuditLog, and for the same reason.
+  'AiInteraction',
+]);
 
 const TENANT_SCOPED_MODELS = new Set([...TENANT_REQUIRED_MODELS, ...TENANT_OPTIONAL_MODELS]);
 

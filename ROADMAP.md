@@ -277,8 +277,54 @@ Not built, deliberately: scheduled reminder dispatch (`APPOINTMENT_REMINDER` and
 cron/queue worker — which belongs with the Phase 14 deployment target), and two-way
 calendar sync as described above.
 
+## Phase 10 — AI layer (delivered)
+
+Behind an `AiAssistant` interface with two adapters: `RuleBasedAssistant` (default — real
+bilingual keyword triage over the tenant's actual `Specialty` rows, no key, no network) and
+`ClaudeAssistant` (Anthropic Messages API). Both are legitimate production choices; see
+ARCHITECTURE.md "AI layer" for why the rule-based one is not treated like a dev adapter.
+
+Delivered: public symptom triage (ar/en) resolving to real verified doctors, a patient
+assistant scoped to the caller's own bookings, an operational clinic briefing, deterministic
+no-show risk scoring, versioned medical disclaimers attached in the service layer, a
+DB-backed rate limiter, and a content-free AI usage ledger.
+
+Verified end-to-end against a live Postgres and a production build:
+- Grounding: an invented specialty slug and a prompt-injection payload both fail to reach
+  the response — every returned slug exists in the database.
+- Emergency path: crushing chest pain (en), ضيق في التنفس with non-standard spelling and
+  diacritics (ar), and self-harm language all set `urgent`, return zero booking suggestions,
+  and attach emergency guidance. The model cannot clear a red flag the keyword check raised.
+- Degradation: malformed JSON, a provider 500, and a 15-second timeout each fall back to
+  deterministic matching rather than erroring at a patient mid-symptom-check.
+- Rate limiting: the 16th triage call in an hour returns 429 with `Retry-After: 3600`, and
+  the rejected call is not recorded as usage.
+- Privacy: after triage requests containing "chest", "ضرس", and "kill myself", the entire
+  `ai_interactions` table contains none of those strings, and no actor key resembles an IP.
+- Access: patients and representatives both get 403 on clinic insights; all three AI
+  endpoints reject anonymous callers.
+- No-show model on real history: 2 no-shows of 4 + booked 25 days ahead → HIGH (55);
+  5 attended + booked next-day → LOW (0); no history + booked 30 days ahead → MEDIUM (37).
+  Every score returns its contributing factors.
+
+Not built, deliberately: AI-drafted clinical summaries for doctors. The brief's §19 mentions
+clinic-side summarisation, and the operational briefing delivers it over scheduling and
+payment data — but summarising a patient's *chart* would mean sending decrypted clinical
+narrative to a third-party model, which contradicts the Phase 8 encryption boundary and
+SECURITY.md's "what leaves the platform". That is a product decision for the user to make
+explicitly, with a data-processing agreement behind it, not one to slip in as a feature.
+
+## Known issue: minor-unit scale (for Phase 11)
+
+Every `*Minor` column is written and read as 1/100 of the major unit, and all display code
+divides by 100 consistently — amounts shown are correct. But JOD, KWD, BHD, and OMR are all
+**three**-decimal currencies under ISO 4217, so the column semantics don't match the launch
+market. Fixing it needs a per-currency exponent on the `Country` row plus a migration that
+rescales existing values; getting it wrong silently multiplies real prices by ten, so it is
+a deliberate reviewed change, not a side effect of another phase. `src/lib/money.ts` now
+centralises the conversion so that migration edits one function.
+
 ## Immediate next step
 
-Phase 10 (AI layer) — Claude-backed doctor discovery from symptoms, a patient assistant,
-clinic-side summaries and no-show prediction, all behind an `AiAssistant` interface, with
-the medical disclaimers the brief requires (§19).
+Phase 11 (analytics) — role-scoped dashboards and reporting over the data the previous
+phases now produce, plus generating the OpenAPI spec from the Zod schemas.

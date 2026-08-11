@@ -76,6 +76,23 @@ export interface Dictionary {
     cancelAppointment: string;
     status: Record<string, string>;
   };
+  symptomCheck: {
+    navLabel: string;
+    title: string;
+    subtitle: string;
+    placeholder: string;
+    submit: string;
+    thinking: string;
+    resultsTitle: string;
+    noResults: string;
+    urgentTitle: string;
+    whyThis: string;
+    confidence: string;
+    degradedNotice: string;
+    rateLimited: string;
+    failed: string;
+    tooShort: string;
+  };
 }
 
 const ar: Dictionary = {
@@ -149,6 +166,23 @@ const ar: Dictionary = {
       RESCHEDULED: 'تم التأجيل',
     },
   },
+  symptomCheck: {
+    navLabel: 'دليل الأعراض',
+    title: 'ما الذي تشعر به؟',
+    subtitle: 'صِف أعراضك بكلماتك، ونقترح عليك التخصص المناسب وأطباء متاحين للحجز. هذه ليست خدمة تشخيص.',
+    placeholder: 'مثال: أعاني من وجع في الضرس منذ ثلاثة أيام ويزداد مع الأكل البارد.',
+    submit: 'اقترح لي تخصصًا',
+    thinking: 'جارٍ تحليل الوصف...',
+    resultsTitle: 'التخصصات المقترحة',
+    noResults: 'لم نتمكن من اقتراح تخصص من هذا الوصف. جرّب وصفًا أوضح أو تصفّح الأطباء مباشرة.',
+    urgentTitle: 'قد تحتاج رعاية عاجلة',
+    whyThis: 'لماذا هذا التخصص',
+    confidence: 'درجة التطابق',
+    degradedNotice: 'الخدمة الذكية غير متاحة حاليًا، وهذه النتائج مبنية على مطابقة الكلمات المفتاحية.',
+    rateLimited: 'عدد المحاولات كبير. انتظر قليلًا ثم أعد المحاولة.',
+    failed: 'تعذّر تحليل الوصف. حاول مرة أخرى.',
+    tooShort: 'اكتب وصفًا من ٨ أحرف على الأقل.',
+  },
 };
 
 const en: Dictionary = {
@@ -221,6 +255,24 @@ const en: Dictionary = {
       NO_SHOW: 'No-show',
       RESCHEDULED: 'Rescheduled',
     },
+  },
+  symptomCheck: {
+    navLabel: 'Symptom guide',
+    title: 'What are you experiencing?',
+    subtitle:
+      'Describe your symptoms in your own words and we will suggest the right specialty and doctors you can book. This is not a diagnostic service.',
+    placeholder: 'For example: I have had a toothache for three days and it gets worse with cold food.',
+    submit: 'Suggest a specialty',
+    thinking: 'Analysing your description...',
+    resultsTitle: 'Suggested specialties',
+    noResults: 'We could not suggest a specialty from that description. Try describing it differently, or browse doctors directly.',
+    urgentTitle: 'You may need urgent care',
+    whyThis: 'Why this specialty',
+    confidence: 'Match strength',
+    degradedNotice: 'The AI service is unavailable right now — these results come from keyword matching.',
+    rateLimited: 'Too many attempts. Please wait a moment and try again.',
+    failed: 'We could not analyse that description. Please try again.',
+    tooShort: 'Please write at least 8 characters.',
   },
 };
 

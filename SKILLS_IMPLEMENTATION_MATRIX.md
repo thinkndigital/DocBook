@@ -15,7 +15,7 @@ application code (e.g. a PDF library, a charting library), tracked in ROADMAP.md
 
 | # | Skill | Used in Phase 1? | Where / how | Planned later use |
 |---|---|---|---|---|
-| 1 | `claude-api` | Yes | Informed the AI-layer provider decision in ARCHITECTURE.md (Claude via Anthropic API as the `AiAssistant` adapter) | Phase 10 — implementing the AI doctor-discovery/patient-assistant/clinic-assistant features |
+| 1 | `claude-api` | Yes | Informed the AI-layer provider decision in ARCHITECTURE.md. **Implemented in Phase 10**: `ClaudeAssistant` calls the Anthropic Messages API over plain `fetch` (no SDK dependency — the request shape is three fields wide and an SDK ships its own transport/retry behaviour into a healthcare service). Model output is schema-checked and filtered against a closed specialty list before it can reach a patient | Revisit if streaming or tool use is needed — that changes one adapter file, not any route |
 | 2 | `security-review` | Yes | Run against the Phase 1 diff before commit (see below) | Re-run every phase that touches auth, payments, or medical records |
 | 3 | `code-review` | Yes | Self-review pass on `src/lib/*` before commit | Every subsequent phase's PR |
 | 4 | `simplify` | Yes | Cleanup pass on the RBAC/tenant/auth modules after first draft | Ongoing |

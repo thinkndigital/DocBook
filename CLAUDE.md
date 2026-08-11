@@ -9,13 +9,14 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–9 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–10 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
-representative portal, payments/subscriptions/commissions, and medical records &
-prescriptions, and notifications/calendar. **Not built yet**: AI (10), analytics (11),
-security hardening & the test suite (12), SEO/performance (13), deployment (14). Don't
-assume a later phase's feature exists just because `ROADMAP.md` describes its scope.
+representative portal, payments/subscriptions/commissions, medical records &
+prescriptions, notifications/calendar, and the AI layer (symptom triage, patient assistant,
+clinic briefing, no-show risk). **Not built yet**: analytics (11), security hardening & the
+test suite (12), SEO/performance (13), deployment (14). Don't assume a later phase's feature
+exists just because `ROADMAP.md` describes its scope.
 
 ## Commands
 
@@ -113,6 +114,28 @@ hard backstop — cancelled/no-show appointments don't block rebooking the same 
 booking path (`createAppointment`) additionally runs inside a `SERIALIZABLE`
 transaction; don't rely on the unique index alone for the
 booking flow, it exists to catch bugs in that transaction logic, not replace it.
+
+**AI is grounded, never authoritative, and its emergency path is not AI.** Everything sits
+behind `AiAssistant` (`src/lib/ai/provider.ts`) with two production-legitimate adapters —
+`RuleBasedAssistant` (default, no key, real keyword triage) and `ClaudeAssistant`. The
+interface has no generic `complete(prompt)` method on purpose. Triage returns specialty
+*slugs* that the service layer filters against real `Specialty` rows before resolving
+doctors through the ordinary marketplace query, so a hallucinated specialty/doctor/price
+cannot surface. `detectRedFlags` (`src/lib/ai/safety.ts`) is deterministic and runs
+independently of any provider call; its verdict is OR-ed with the model's, so the model can
+raise an alarm but never clear one, and an urgent result suppresses booking suggestions
+entirely. Disclaimers are attached in the *service layer* (`src/lib/ai/disclaimers.ts`,
+versioned) so no route or page can render AI output without one. No-show risk
+(`no-show-risk.ts`) is deliberately arithmetic, not an LLM call — a clinic acts on it, so it
+returns its factors and sends nothing off-platform. Never widen
+`buildPatientContext`'s explicit `select` to an `include`: that is the single gate keeping
+`Appointment.notes` and future columns out of a third-party prompt.
+
+**Public marketplace queries use `select`, never `include`.** `PUBLIC_DOCTOR_SELECT` in
+`src/lib/services/marketplace.ts` is an allowlist because `include` publishes every current
+and future `Doctor` column to the internet — which is how `calendarFeedToken` (a bearer
+credential for a doctor's private calendar feed) was exposed on `/api/v1/public/doctors`
+between Phase 9 and Phase 10.
 
 **Money is integer minor units** (`priceMinor`, `amountMinor` — fils/halalas), never
 floats, with a sibling `currency` column. **Country/city data is rows, not constants** —
