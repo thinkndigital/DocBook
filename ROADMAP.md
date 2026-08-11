@@ -10,7 +10,7 @@ no phase ships stubs or fake data paths (§47).
 | 3 | Doctor + clinic management (profiles, branches, staff, services, verification workflow) | **Delivered** |
 | 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | **Delivered** |
 | 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | **Delivered** |
-| 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | Not started |
+| 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | **Delivered** |
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | Not started |
 | 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | Not started |
 | 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, OAuth calendar sync) | Not started |
@@ -129,9 +129,30 @@ actual patient API, confirmed it appears correctly in the doctor's own appointme
 reopened, and confirmed a second patient gets 403 trying to cancel someone else's
 appointment.
 
+## Phase 6 delivered
+
+The brief's core differentiator is live: SUPER_ADMIN creates representatives (real
+logins, optional monthly target in minor units) and assigns them tenants;
+`RepresentativeAssignment` rows are the *only* thing that defines a rep's reach.
+Representatives are platform-level users (`User.tenantId` stays null — one rep spans
+several clinics, which is exactly why they can't be tenant staff), so their boundary is
+enforced by an explicit `assertRepAssignedToTenant` check inside `createAppointment` and
+the rep availability route, not by tenant-context scoping (which never constrains a
+tenant-less actor). Every rep booking carries `bookedByRepresentativeId` — attribution
+that survives reschedules — which is the hook the Phase 7 commission engine keys on. The
+rep dashboard shows live aggregates (bookings, completed, cancelled, month revenue,
+target-achievement %); commission *rules/payouts* are deliberately absent until Phase 7.
+
+Verified end-to-end against a live Postgres instance: rep saw only their one assigned
+tenant; booked a brand-new walk-in patient and an existing patient (both attributed
+correctly and visible in the doctor's own day list); got 403 `TENANT_NOT_ASSIGNED` on both
+availability and booking for an unassigned tenant's doctor; got 403 on tenant patient
+search, admin stats, and clinical queue-status transitions (the structural permission
+exclusions doing their job); and after the clinic completed one booking, the rep's stats
+showed exactly 2 bookings / 1 completed / 20.00 JOD revenue / 4% of the 500 JOD target.
+
 ## Immediate next step
 
-Phase 6 (representative portal) is next — assigned accounts, book-on-behalf, commission
-dashboard, and the audit-limited access the brief calls out explicitly (representatives
-must never reach `medical_record:*`/`prescription:*`, already structurally impossible per
-Phase 1's permission matrix, not just convention).
+Phase 7 (payments + subscriptions + commissions) — the `PaymentProvider` interface with a
+dev adapter, plan billing, and the configurable commission engine that consumes
+`bookedByRepresentativeId` and the `CommissionRule` table seeded in the Phase 1 schema.

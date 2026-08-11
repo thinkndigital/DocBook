@@ -84,6 +84,18 @@ appointment goes through `cancelOwnAppointment`, deliberately separate from staf
 `setAppointmentStatus`: a patient may only ever reach `CANCELLED`, never clinical states
 like `CHECKED_IN`/`COMPLETED`.
 
+**Representatives are tenant-less; their reach is RepresentativeAssignment rows.**
+`User.tenantId` stays null for `REPRESENTATIVE` (one rep spans several clinics), so
+neither the tenant middleware nor the staff `actor.tenantId === doctor.tenantId` check
+ever constrains them — `assertRepAssignedToTenant` (`src/lib/services/representatives.ts`)
+is the single enforcement point, called from `createAppointment` and the rep availability
+route. `assertCanModify` has a dedicated rep branch (may only touch bookings where
+`bookedByRepresentativeId` is their own). Rep bookings carry `bookedByRepresentativeId`,
+preserved across reschedules — the Phase 7 commission engine keys on it; don't drop it
+when touching the reschedule path. Rep availability is a separate endpoint from the
+public one on purpose: public availability serves only `verified` doctors, reps may book
+any doctor of an assigned tenant.
+
 **i18n is a `[locale]` segment, not next-intl, and only covers the patient marketplace.**
 `src/app/[locale]/` (ar/en) holds the public search/profile/booking/patient-dashboard
 pages only — `/admin`, `/tenant`, `/doctor` stay where they are, Arabic-only. Translations

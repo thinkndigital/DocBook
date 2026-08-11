@@ -55,14 +55,19 @@ async function createPatientRow(
   });
 }
 
-/** Staff (receptionist/tenant admin) registering a patient on their behalf — default assigned password, audited against the acting tenant. */
-export async function registerPatient(input: RegisterPatientInput, actor: SessionUser & { tenantId: string }) {
+/**
+ * Staff or representative registering a patient on someone's behalf — default assigned
+ * password. Audited against the acting tenant when the actor has one (receptionist/tenant
+ * admin); a representative has no tenantId, so the caller passes the tenant being booked
+ * at via `auditTenantId` instead.
+ */
+export async function registerPatient(input: RegisterPatientInput, actor: SessionUser, auditTenantId?: string) {
   const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
   const patient = await createPatientRow(input, passwordHash);
 
   await recordAudit({
     actorUserId: actor.id,
-    tenantId: actor.tenantId,
+    tenantId: actor.tenantId ?? auditTenantId ?? null,
     action: 'PATIENT_REGISTERED',
     entityType: 'Patient',
     entityId: patient.id,

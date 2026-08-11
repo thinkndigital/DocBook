@@ -7,6 +7,7 @@ const NAV = [
   { href: '/admin', label: 'نظرة عامة' },
   { href: '/admin/tenants', label: 'الجهات الصحية' },
   { href: '/admin/doctors', label: 'توثيق الأطباء' },
+  { href: '/admin/representatives', label: 'المندوبون' },
   { href: '/admin/settings/countries', label: 'الدول والمدن' },
   { href: '/admin/settings/plans', label: 'خطط الاشتراك' },
 ];

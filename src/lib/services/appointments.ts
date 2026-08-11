@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import type { createAppointmentSchema, appointmentStatusSchema } from '@/lib/validation/appointment';
 import { getAvailableSlots } from '@/lib/services/availability';
 import { findPatientByEmail, registerPatient, PatientConflictError } from '@/lib/services/patients';
+import { getOwnRepresentative, assertRepAssignedToTenant } from '@/lib/services/representatives';
 
 type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 type AppointmentStatusInput = z.infer<typeof appointmentStatusSchema>;
@@ -60,6 +61,18 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
   }
   const tenantId = doctor.tenantId;
 
+  // A representative has no tenantId, so the staff check above never constrains them —
+  // their reach is bounded by RepresentativeAssignment instead. Resolve the rep row here
+  // so the booking is attributed to them (bookedByRepresentativeId) for the Phase 7
+  // commission engine and the rep dashboard.
+  let representativeId: string | null = null;
+  if (actor.role === 'REPRESENTATIVE') {
+    const rep = await getOwnRepresentative(actor.id);
+    if (!rep) throw new InvalidReferenceError('No representative profile for this account.');
+    await assertRepAssignedToTenant(rep.id, tenantId);
+    representativeId = rep.id;
+  }
+
   const [branch, service] = await Promise.all([
     db.branch.findFirst({ where: { id: input.branchId, tenantId } }),
     db.service.findFirst({ where: { id: input.serviceId, tenantId } }),
@@ -80,7 +93,7 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
     patientId = input.patientId;
     if (!patientId && input.newPatient) {
       try {
-        const patient = await registerPatient(input.newPatient, actor as SessionUser & { tenantId: string });
+        const patient = await registerPatient(input.newPatient, actor, tenantId);
         patientId = patient.id;
       } catch (err) {
         if (err instanceof PatientConflictError) {
@@ -120,6 +133,7 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
             patientId,
             serviceId: input.serviceId,
             bookedByUserId: actor.id,
+            bookedByRepresentativeId: representativeId,
             type: input.type,
             status: 'CONFIRMED',
             scheduledAt,
@@ -239,6 +253,13 @@ async function assertCanModify(before: NonNullable<Awaited<ReturnType<typeof get
     if (!ownPatient || ownPatient.id !== before.patientId) {
       throw new NotOwnAppointmentError('This appointment does not belong to you.');
     }
+  } else if (actor.role === 'REPRESENTATIVE') {
+    // Reps are tenant-less, so the tenant check below never constrains them — they may
+    // only touch bookings they themselves made.
+    const rep = await getOwnRepresentative(actor.id);
+    if (!rep || before.bookedByRepresentativeId !== rep.id) {
+      throw new NotOwnAppointmentError('This appointment was not booked by you.');
+    }
   } else if (actor.tenantId && actor.tenantId !== before.tenantId) {
     throw new NotOwnAppointmentError('This appointment does not belong to your tenant.');
   }
@@ -283,6 +304,9 @@ export async function rescheduleAppointment(id: string, newScheduledAtIso: strin
             patientId: before.patientId,
             serviceId: before.serviceId,
             bookedByUserId: actor.id,
+            // Attribution survives a reschedule: the rep who generated the original
+            // booking keeps it for the Phase 7 commission engine, whoever rescheduled.
+            bookedByRepresentativeId: before.bookedByRepresentativeId,
             type: before.type,
             status: 'CONFIRMED',
             scheduledAt: newScheduledAt,

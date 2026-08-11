@@ -58,6 +58,7 @@ export type Permission =
   | 'tenant:manage_all'
   | 'tenant:verify'
   | 'doctor:verify'
+  | 'representative:manage'
   | 'country:manage'
   | 'city:manage'
   | 'subscription_plan:manage'
