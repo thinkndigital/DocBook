@@ -11,11 +11,40 @@ npx prisma db seed
 npm run dev                # http://localhost:3000
 ```
 
+## Two production build modes
+
+There are two mutually exclusive ways to serve a production build, and mixing them is a
+silent failure:
+
+| Mode | Build | Serve |
+|------|-------|-------|
+| Default | `npm run build` | `npm start` (`next start`) |
+| Standalone | `BUILD_STANDALONE=1 npm run build` | `node .next/standalone/server.js` |
+
+`output: 'standalone'` is gated behind `BUILD_STANDALONE=1` in `next.config.js` precisely
+because a standalone build served by `next start` produces a half-wired app: most dynamic
+server-component pages return *"Application error: a server-side exception has occurred"*
+with only an opaque digest. Only the `Dockerfile` sets that flag, and it runs
+`server.js` directly.
+
+## Required configuration
+
+`src/instrumentation.ts` runs `checkRequiredEnv()` once per server process. In production
+the app **refuses to start** — naming the exact variable — if any of `DATABASE_URL`,
+`NEXTAUTH_SECRET`, `NEXTAUTH_URL`, or `FIELD_ENCRYPTION_KEY` (must decode to exactly 32
+bytes) is missing. This replaced a class of failure where a missing secret only surfaced
+as a per-page 500 on whichever request first touched it.
+
+`PAYMENT_PROVIDER` is deliberately a startup *warning*, not a failure: booking, queue, and
+records all work without a gateway, so an unconfigured one must not stop a clinic from
+running appointments. `getPaymentProvider()` still throws at call time in production.
+
 ## Docker
 
-`Dockerfile` builds a production `next build` (standalone output) image. `docker-compose.yml`
-runs `app` + `db` together for local parity testing. No production secrets are baked into
-the image — everything comes from environment variables at runtime.
+`Dockerfile` builds a production standalone image (`ENV BUILD_STANDALONE=1` before the
+build, `node server.js` in the runner stage). `docker-compose.yml` runs `app` + `db`
+together for local parity testing. No production secrets are baked into the image —
+everything comes from environment variables at runtime.
 
 ## Target cloud platform — open decision
 

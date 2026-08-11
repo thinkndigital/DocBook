@@ -57,6 +57,17 @@ export function encryptField(plaintext: string): string {
   return `${VERSION}:${iv.toString('base64')}:${authTag.toString('base64')}:${ciphertext.toString('base64')}`;
 }
 
+/**
+ * Marker returned when a stored value cannot be authenticated — wrong key (rotation, a
+ * restored backup, an environment mix-up) or tampering.
+ *
+ * Deliberately NOT an empty string: silently rendering a blank diagnosis would let a
+ * clinician read "nothing recorded" when something *is* recorded but unreadable, which is
+ * a patient-safety problem, not a display problem. An explicit marker makes the failure
+ * visible to the person who needs to know.
+ */
+export const UNDECRYPTABLE_MARKER = '[unreadable — encrypted with a different key]';
+
 export function decryptField(stored: string): string {
   const parts = stored.split(':');
   if (parts.length !== 4 || parts[0] !== VERSION) {
@@ -65,9 +76,19 @@ export function decryptField(stored: string): string {
     return stored;
   }
   const [, ivB64, tagB64, dataB64] = parts;
-  const decipher = createDecipheriv(ALGORITHM, resolveKey(), Buffer.from(ivB64!, 'base64'));
-  decipher.setAuthTag(Buffer.from(tagB64!, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(dataB64!, 'base64')), decipher.final()]).toString('utf8');
+  try {
+    const decipher = createDecipheriv(ALGORITHM, resolveKey(), Buffer.from(ivB64!, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagB64!, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(dataB64!, 'base64')), decipher.final()]).toString('utf8');
+  } catch {
+    // Contain the failure to this one field. A single unreadable row must not take down a
+    // whole patient chart — the rest of the history is still clinically useful, and a
+    // doctor mid-consult should see the records that ARE readable.
+    // Never log the ciphertext or key material, only that a failure occurred.
+    // eslint-disable-next-line no-console
+    console.error('[field-encryption] Failed to authenticate a stored value; returning marker.');
+    return UNDECRYPTABLE_MARKER;
+  }
 }
 
 /** Convenience wrappers for optional columns. */

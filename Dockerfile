@@ -8,6 +8,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+# Standalone output is opt-in (see next.config.js) — the runner stage below executes
+# .next/standalone/server.js, which is the only correct way to serve that build.
+ENV BUILD_STANDALONE=1
 RUN npm run build
 
 FROM node:22-alpine AS runner
