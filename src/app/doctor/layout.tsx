@@ -21,6 +21,9 @@ export default async function DoctorLayout({ children }: { children: React.React
         <Link href="/doctor/patients" className="text-neutral-700 hover:text-brand-700">
           مرضاي
         </Link>
+        <Link href="/doctor/calendar" className="text-neutral-700 hover:text-brand-700">
+          مزامنة التقويم
+        </Link>
       </nav>
       <div className="p-8">{children}</div>
     </div>

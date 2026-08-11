@@ -8,6 +8,7 @@ import {
   ClinicalAccessDeniedError,
   type ClinicalActor,
 } from '@/lib/services/clinical-access';
+import { dispatchNotificationAsync } from '@/lib/services/notifications';
 
 export class PrescriptionNotFoundError extends Error {}
 export class InvalidAppointmentError extends Error {}
@@ -94,6 +95,14 @@ export async function createPrescription(input: CreatePrescriptionInput, actor: 
   const decrypted = decryptPrescription(created);
   const storageKey = await generateAndStorePdf(decrypted);
   await db.prescription.update({ where: { id: created.id }, data: { pdfStorageKey: storageKey } });
+
+  // Carries no clinical detail — just that a prescription exists and where to read it.
+  dispatchNotificationAsync({
+    event: 'PRESCRIPTION_ISSUED',
+    userId: created.patient.userId,
+    tenantId: appointment.tenantId,
+    vars: { doctorName: created.doctor.user.name },
+  });
 
   return { ...decrypted, pdfStorageKey: storageKey };
 }

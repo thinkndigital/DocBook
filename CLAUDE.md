@@ -9,11 +9,11 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–8 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–9 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
 representative portal, payments/subscriptions/commissions, and medical records &
-prescriptions. **Not built yet**: notifications/WhatsApp/calendar (9), AI (10), analytics (11),
+prescriptions, and notifications/calendar. **Not built yet**: AI (10), analytics (11),
 security hardening & the test suite (12), SEO/performance (13), deployment (14). Don't
 assume a later phase's feature exists just because `ROADMAP.md` describes its scope.
 
@@ -148,6 +148,18 @@ nothing. Route handlers use `withClinicalAuthorization` (`src/lib/api/clinical.t
 also audits denials. Signed file URLs are a convenience, not authority: the download route
 re-checks session and per-patient permission, so never "simplify" it to trust the
 signature alone.
+
+**Notifications must never break the action that triggered them, or carry clinical
+content.** `dispatchNotificationAsync` (`src/lib/services/notifications.ts`) is
+fire-and-forget and swallows every error by design — a failing SMS vendor must not roll
+back a confirmed booking; failures land as `FAILED` Notification rows instead. Templates
+(`src/lib/notifications/templates.ts`) deliberately reference clinical events without
+describing them ("a prescription was issued", never the medication), because these messages
+travel over channels we don't control and can't audit. `IN_APP` is exempt from opt-out
+since it never leaves the platform. The doctor calendar feed
+(`src/lib/services/calendar.ts`) is read-only iCal, not OAuth sync: its 256-bit path token
+is the only credential, so it carries no clinical content and regenerating it revokes every
+existing subscription.
 
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass

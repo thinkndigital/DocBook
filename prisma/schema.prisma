@@ -258,22 +258,26 @@ model Branch {
 // ---------- Users & roles ----------
 
 model User {
-  id               String     @id @default(uuid())
-  tenantId         String? // null for PATIENT and SUPER_ADMIN
-  email            String     @unique
-  phone            String?
-  passwordHash     String
-  role             UserRole
-  status           UserStatus @default(ACTIVE)
-  name             String
-  nameAr           String?
-  locale           String     @default("ar")
-  twoFactorEnabled Boolean    @default(false)
-  twoFactorSecret  String?
-  lastLoginAt      DateTime?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  deletedAt        DateTime?
+  id                String     @id @default(uuid())
+  tenantId          String? // null for PATIENT and SUPER_ADMIN
+  email             String     @unique
+  phone             String?
+  passwordHash      String
+  role              UserRole
+  status            UserStatus @default(ACTIVE)
+  name              String
+  nameAr            String?
+  locale            String     @default("ar")
+  twoFactorEnabled  Boolean    @default(false)
+  twoFactorSecret   String?
+  // Per-channel opt-out, e.g. { "SMS": false, "WHATSAPP": false }. Absent/true = enabled.
+  // Kept as JSON rather than a table: it's a small per-user preference blob that is only
+  // ever read whole, never queried across users.
+  notificationPrefs Json?
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
 
   tenant         Tenant?         @relation(fields: [tenantId], references: [id])
   patient        Patient?
@@ -404,6 +408,9 @@ model Doctor {
   currency               String    @default("JOD")
   ratingAverage          Float     @default(0)
   ratingCount            Int       @default(0)
+  // Bearer token for the doctor's private iCal feed. Nullable until generated, unique so
+  // the feed route can look up by it, and regenerating it instantly revokes old subscriptions.
+  calendarFeedToken      String?   @unique
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
   deletedAt              DateTime?

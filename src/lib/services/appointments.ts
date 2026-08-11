@@ -7,6 +7,8 @@ import type { createAppointmentSchema, appointmentStatusSchema } from '@/lib/val
 import { getAvailableSlots } from '@/lib/services/availability';
 import { findPatientByEmail, registerPatient, PatientConflictError } from '@/lib/services/patients';
 import { getOwnRepresentative, assertRepAssignedToTenant } from '@/lib/services/representatives';
+import { dispatchNotificationAsync } from '@/lib/services/notifications';
+import type { NotificationEvent } from '@/lib/notifications/templates';
 
 type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 type AppointmentStatusInput = z.infer<typeof appointmentStatusSchema>;
@@ -26,6 +28,37 @@ const APPOINTMENT_INCLUDE = {
 
 function dateKey(scheduledAt: Date): string {
   return scheduledAt.toISOString().slice(0, 10);
+}
+
+function formatWhen(scheduledAt: Date): string {
+  return scheduledAt.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+}
+
+/** Notifies the patient about one of their appointments. Fire-and-forget by design. */
+function notifyPatient(
+  event: NotificationEvent,
+  appointment: {
+    tenantId: string;
+    queueToken: number | null;
+    scheduledAt: Date;
+    patient: { user: { id: string } };
+    doctor: { user: { name: string } };
+    branch: { name: string };
+  },
+  extra: Record<string, string | number> = {}
+) {
+  dispatchNotificationAsync({
+    event,
+    userId: appointment.patient.user.id,
+    tenantId: appointment.tenantId,
+    vars: {
+      doctorName: appointment.doctor.user.name,
+      branchName: appointment.branch.name,
+      when: formatWhen(appointment.scheduledAt),
+      queueToken: appointment.queueToken ?? undefined,
+      ...extra,
+    },
+  });
 }
 
 async function resolveSlotDuration(doctorId: string, branchId: string, scheduledAt: Date): Promise<number> {
@@ -157,6 +190,8 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
       afterState: { doctorId: input.doctorId, scheduledAt: input.scheduledAt, queueToken },
     });
 
+    notifyPatient('BOOKING_CREATED', appointment);
+
     return appointment;
   } catch (err) {
     // The partial unique index (appointment_slot_unique, see prisma/migrations) is the
@@ -229,6 +264,16 @@ export async function setAppointmentStatus(id: string, input: AppointmentStatusI
   });
 
   await db.queueEvent.create({ data: { appointmentId: id, status: input.status } });
+
+  // Queue-position and cancellation events the patient actually needs to see.
+  const STATUS_EVENT: Partial<Record<AppointmentStatus, NotificationEvent>> = {
+    IN_QUEUE: 'QUEUE_APPROACHING',
+    CALLED: 'PATIENT_CALLED',
+    CANCELLED: 'BOOKING_CANCELLED',
+    COMPLETED: 'REVIEW_REQUEST',
+  };
+  const event = STATUS_EVENT[input.status];
+  if (event) notifyPatient(event, appointment);
 
   await recordAudit({
     actorUserId: actor.id,
@@ -332,6 +377,8 @@ export async function rescheduleAppointment(id: string, newScheduledAtIso: strin
       afterState: { newAppointmentId: result.id, scheduledAt: newScheduledAtIso },
     });
 
+    notifyPatient('BOOKING_RESCHEDULED', result);
+
     return result;
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -392,6 +439,8 @@ export async function cancelOwnAppointment(id: string, cancelReason: string | un
     beforeState: { status: before.status },
     afterState: { status: 'CANCELLED', cancelReason },
   });
+
+  notifyPatient('BOOKING_CANCELLED', appointment);
 
   return appointment;
 }

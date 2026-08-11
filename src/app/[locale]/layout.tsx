@@ -48,6 +48,9 @@ export default async function LocaleLayout({
                 <Link href={`/${locale}/patient/records`} className="text-neutral-700 hover:text-brand-700">
                   {locale === 'ar' ? 'ملفي الصحي' : 'Health record'}
                 </Link>
+                <Link href={`/${locale}/patient/notifications`} className="text-neutral-700 hover:text-brand-700">
+                  {locale === 'ar' ? 'الإشعارات' : 'Notifications'}
+                </Link>
               </>
             ) : (
               <>

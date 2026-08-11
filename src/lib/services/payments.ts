@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
 import { getPaymentProvider } from '@/lib/payments';
 import { computeCommissionSplit, persistCommissions, cancelCommissionsForAppointment } from '@/lib/services/commissions';
+import { dispatchNotificationAsync } from '@/lib/services/notifications';
 import type { PaymentMethod, PaymentStatus } from '@prisma/client';
 import type { SessionUser } from '@/lib/auth';
 
@@ -111,6 +112,24 @@ export async function collectAppointmentPayment(
 
   if (split) await persistCommissions(appointmentId, split, actor);
 
+  if (paid.appointment) {
+    const full = await db.appointment.findUnique({
+      where: { id: appointmentId },
+      include: { patient: { include: { user: { select: { id: true } } } }, doctor: { include: { user: { select: { name: true } } } } },
+    });
+    if (full) {
+      dispatchNotificationAsync({
+        event: 'PAYMENT_COMPLETED',
+        userId: full.patient.user.id,
+        tenantId: appointment.tenantId,
+        vars: {
+          doctorName: full.doctor.user.name,
+          amount: `${(amountMinor / 100).toFixed(2)} ${appointment.currency}`,
+        },
+      });
+    }
+  }
+
   return paid;
 }
 
@@ -159,6 +178,24 @@ export async function refundPayment(paymentId: string, amountMinor: number | und
   // recalculation is a finance-policy decision, not something to guess at here.
   if (isFull && payment.appointmentId) {
     await cancelCommissionsForAppointment(payment.appointmentId, actor);
+  }
+
+  if (payment.appointmentId) {
+    const full = await db.appointment.findUnique({
+      where: { id: payment.appointmentId },
+      include: { patient: { include: { user: { select: { id: true } } } }, doctor: { include: { user: { select: { name: true } } } } },
+    });
+    if (full) {
+      dispatchNotificationAsync({
+        event: 'PAYMENT_REFUNDED',
+        userId: full.patient.user.id,
+        tenantId: payment.tenantId,
+        vars: {
+          doctorName: full.doctor.user.name,
+          amount: `${(refundAmount / 100).toFixed(2)} ${payment.currency}`,
+        },
+      });
+    }
   }
 
   return updated;

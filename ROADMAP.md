@@ -13,7 +13,7 @@ no phase ships stubs or fake data paths (§47).
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | **Delivered** |
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | **Delivered** |
 | 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | **Delivered** |
-| 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, OAuth calendar sync) | Not started |
+| 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, iCal feed) | **Delivered** |
 | 10 | AI layer (doctor discovery, patient assistant, clinic assistant, analytics — Claude-backed, with medical disclaimers) | Not started |
 | 11 | Analytics (KPIs, dashboards, OpenAPI docs) | Not started |
 | 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | Not started |
@@ -227,8 +227,58 @@ embedded Unicode font with Arabic shaping (harfbuzz-class work), so unsupported 
 substituted rather than emitting broken output. Also outstanding: KMS-managed keys and
 malware scanning of uploads (both noted in SECURITY.md, targeted at Phase 12).
 
+## Phase 9 delivered
+
+Events that happen in the platform now reach the people they concern. A
+`NotificationProvider` contract per channel (email/SMS/WhatsApp/push) plus an in-app
+channel; bilingual templates chosen by the recipient's locale; per-user channel opt-out;
+and a dispatcher wired into booking, cancellation, reschedule, queue transitions, payment
+capture/refund, and prescription issue.
+
+**Honest split between what is live and what is abstracted**, since this phase touches
+vendors that cannot be provisioned from here:
+
+| Capability | Status |
+|---|---|
+| In-app notifications | **Fully working** — the row *is* the delivery; inbox, unread count, read state |
+| Event fan-out, templates, preferences | **Fully working** across all channels |
+| Email / SMS / WhatsApp / push delivery | **Abstracted** — dev adapters log; swapping in SES/Twilio/Meta is one adapter each, no service changes |
+| Calendar sync | **Fully working** as a subscribable iCal feed (below) |
+| WhatsApp inbound bot | **Contract only** — handshake, signature verification, parsing, and intent routing are real; no bot runs behind it |
+
+**Calendar was solved without OAuth.** Google, Apple, and Outlook all support subscribing
+to an iCal URL, so a signed, revocable per-doctor `.ics` feed satisfies "the doctor sees
+their schedule in their own calendar" for all three targets today — with no OAuth client
+registration and no stored third-party refresh tokens to leak. What this deliberately does
+*not* do is read the doctor's *external* calendar to block DocBook slots; that direction
+genuinely needs OAuth per provider and is left undone rather than half-built.
+`getAvailableSlots` remains the single source of truth for bookability.
+
+Verified end-to-end against live Postgres:
+- A booking fanned out to IN_APP + EMAIL + WHATSAPP; after the patient opted out of email
+  and WhatsApp, the next booking produced IN_APP only. IN_APP cannot be disabled.
+- **No clinical content leaves the platform**: a prescription for "Suspected pulmonary
+  tuberculosis / Rifampicin" produced the message "Dr X issued a new prescription for you.
+  You can view it in your health record." A scan of every notification payload for those
+  strings matched zero rows.
+- **A failing channel cannot break the business action**: with the patient's phone removed,
+  the WhatsApp row was recorded `FAILED` while the appointment was still `CONFIRMED`.
+- The `.ics` feed parses correctly (CRLF endings, balanced VEVENTs, no line over 75 octets,
+  commas escaped per RFC 5545), contains no clinical content, 404s on an unknown token, and
+  rotating the token immediately 404s the old URL while the new one serves.
+- WhatsApp webhook: subscription handshake echoes the challenge, a wrong verify token 403s,
+  an unsigned POST 403s, and a correctly HMAC-signed message is parsed, intent-classified
+  (`BOOK`), and recorded.
+- In-app read state: per-notification and mark-all-read work, and one user marking another
+  user's notification read 404s.
+
+Not built, deliberately: scheduled reminder dispatch (`APPOINTMENT_REMINDER` and
+`SUBSCRIPTION_RENEWAL` templates and channels exist, but firing them needs a scheduler —
+cron/queue worker — which belongs with the Phase 14 deployment target), and two-way
+calendar sync as described above.
+
 ## Immediate next step
 
-Phase 9 (notifications + WhatsApp + calendar sync) — the `NotificationProvider` interface
-per channel with dev adapters, the booking/queue/reminder event hooks, and OAuth calendar
-synchronisation.
+Phase 10 (AI layer) — Claude-backed doctor discovery from symptoms, a patient assistant,
+clinic-side summaries and no-show prediction, all behind an `AiAssistant` interface, with
+the medical disclaimers the brief requires (§19).
