@@ -12,7 +12,7 @@ no phase ships stubs or fake data paths (§47).
 | 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | **Delivered** |
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | **Delivered** |
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | **Delivered** |
-| 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | Not started |
+| 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | **Delivered** |
 | 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, OAuth calendar sync) | Not started |
 | 10 | AI layer (doctor discovery, patient assistant, clinic assistant, analytics — Claude-backed, with medical disclaimers) | Not started |
 | 11 | Analytics (KPIs, dashboards, OpenAPI docs) | Not started |
@@ -192,9 +192,43 @@ a scheduler and a real gateway's recurring-charge support), and commission *payo
 commissions are computed and tracked through PENDING/CANCELLED, but marking them PAID is a
 finance-operations workflow, not something to fake here.
 
+## Phase 8 delivered
+
+Clinical data now exists in the system, and it is the most defended data in it. Doctors
+write records and issue prescriptions for their own patients; patients read their chart,
+download prescription PDFs, and upload documents.
+
+The security work is the substance of this phase, and each property was verified
+adversarially rather than assumed — full detail in SECURITY.md "Clinical data protection":
+
+- **Encrypted at rest** (AES-256-GCM, `src/lib/crypto/field-encryption.ts`): diagnoses,
+  notes, instructions, and every medication field. Confirmed by writing through the API
+  and then reading the raw row in `psql` — ciphertext, with zero plaintext matches in the
+  table. `FIELD_ENCRYPTION_KEY` is required in production.
+- **Treatment-relationship access control**: a doctor reaches a chart only if they have an
+  appointment with that patient. A second doctor *at the same clinic*, a representative,
+  another patient, and a tenant admin were each denied 403 against a chart the treating
+  doctor could read. `SUPER_ADMIN` is excluded by design — operators see that access
+  happened, never the content.
+- **Signed URLs are not authorisation**: the download route independently re-checks session
+  and per-patient permission. A valid link used by a different patient → 403; no session →
+  401; tampered → 403; expired → 403; path traversal → 403.
+- **Uploads validated by content**: magic-byte sniffing rejected a Windows executable
+  renamed to `.pdf` and declared `application/pdf`. Storage keys are random UUIDs.
+- **Access auditing without leakage**: reads and denials are logged; scanning audit
+  payloads for the test diagnosis/medication strings matched zero rows.
+
+Prescriptions generate a real PDF (pdf-lib) at issue time, stored via `StorageProvider` —
+confirmed as a genuine `PDF-1.7` document on disk and downloadable by the patient.
+
+Known limitation, deliberately not faked: the PDF is laid out in English. pdf-lib's
+standard fonts are WinAnsi and cannot encode Arabic; correct bilingual output needs an
+embedded Unicode font with Arabic shaping (harfbuzz-class work), so unsupported glyphs are
+substituted rather than emitting broken output. Also outstanding: KMS-managed keys and
+malware scanning of uploads (both noted in SECURITY.md, targeted at Phase 12).
+
 ## Immediate next step
 
-Phase 8 (medical records + prescriptions) — the encrypted-at-rest clinical data, signed
-attachment URLs, and prescription PDF generation described in SECURITY.md, plus the
-access-audit requirements that make `medical_record:*` the most sensitive permission in
-the matrix.
+Phase 9 (notifications + WhatsApp + calendar sync) — the `NotificationProvider` interface
+per channel with dev adapters, the booking/queue/reminder event hooks, and OAuth calendar
+synchronisation.

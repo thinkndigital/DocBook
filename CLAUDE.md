@@ -9,11 +9,11 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–7 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–8 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
-representative portal, and payments/subscriptions/commissions. **Not built yet**: medical
-records & prescriptions (8), notifications/WhatsApp/calendar (9), AI (10), analytics (11),
+representative portal, payments/subscriptions/commissions, and medical records &
+prescriptions. **Not built yet**: notifications/WhatsApp/calendar (9), AI (10), analytics (11),
 security hardening & the test suite (12), SEO/performance (13), deployment (14). Don't
 assume a later phase's feature exists just because `ROADMAP.md` describes its scope.
 
@@ -136,6 +136,18 @@ tenant's active `SubscriptionPlan.bookingCommissionPct`, rep/doctor cuts from
 the **exact remainder** so rounding can never mint or destroy fils — assert the split sums
 to the booking price in any test you add. `getPaymentProvider()` throws on an unknown
 `PAYMENT_PROVIDER` and refuses the dev adapter under `NODE_ENV=production` by design.
+
+**Clinical data is encrypted at rest and gated by treatment relationship.** Diagnoses,
+notes, prescription instructions, and medication fields go through
+`encryptField`/`decryptField` (`src/lib/crypto/field-encryption.ts`) at the service layer —
+never write them to Prisma raw, and never add a `where` clause that filters on their
+content (it's ciphertext; the query will silently match nothing). Access is decided in one
+place, `src/lib/services/clinical-access.ts`: doctors need an actual appointment with the
+patient, patients get only their own, and every other role — including `SUPER_ADMIN` — gets
+nothing. Route handlers use `withClinicalAuthorization` (`src/lib/api/clinical.ts`), which
+also audits denials. Signed file URLs are a convenience, not authority: the download route
+re-checks session and per-patient permission, so never "simplify" it to trust the
+signature alone.
 
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass

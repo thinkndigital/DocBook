@@ -45,6 +45,9 @@ export default async function LocaleLayout({
                 <Link href={`/${locale}/patient`} className="text-neutral-700 hover:text-brand-700">
                   {dict.nav.myAppointments}
                 </Link>
+                <Link href={`/${locale}/patient/records`} className="text-neutral-700 hover:text-brand-700">
+                  {locale === 'ar' ? 'ملفي الصحي' : 'Health record'}
+                </Link>
               </>
             ) : (
               <>
