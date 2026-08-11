@@ -79,9 +79,25 @@ export async function checkRateLimit(kind: AiInteractionKind, actorKey: string):
   const limit = LIMITS[kind];
   const windowStart = new Date(Date.now() - limit.windowMinutes * 60_000);
 
-  const used = await db.aiInteraction.count({
-    where: { kind, actorKey, createdAt: { gte: windowStart } },
-  });
+  let used: number;
+  try {
+    used = await db.aiInteraction.count({
+      where: { kind, actorKey, createdAt: { gte: windowStart } },
+    });
+  } catch (err) {
+    // Fail OPEN, matching what `recordAiUsage` already does and for the same stated
+    // reason: an unlimited symptom checker for the duration of an infrastructure problem
+    // beats a symptom checker that is down during one. This previously threw, which turned
+    // a single unavailable table — an unapplied migration on a fresh deploy is the common
+    // case — into a 500 on the symptom checker and a blank error page on clinic insights.
+    // eslint-disable-next-line no-console
+    console.error(
+      '[ai] Rate-limit check failed; allowing the request. If this repeats, the ai_interactions ' +
+        'table is unreachable — check that migrations are applied (npx prisma migrate deploy). ' +
+        (err instanceof Error ? err.message : String(err))
+    );
+    return { allowed: true, retryAfterSeconds: 0, remaining: 0 };
+  }
 
   if (used < limit.max) {
     return { allowed: true, retryAfterSeconds: 0, remaining: limit.max - used };

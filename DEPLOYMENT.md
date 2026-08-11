@@ -39,6 +39,19 @@ as a per-page 500 on whichever request first touched it.
 records all work without a gateway, so an unconfigured one must not stop a clinic from
 running appointments. `getPaymentProvider()` still throws at call time in production.
 
+## Migrations must be applied before serving
+
+`npx prisma migrate deploy` is a required deploy step, not an optional one. Skipping it
+produces the most misleading failure this app has: it boots cleanly, most pages work, and
+the one feature that needs the new table returns a bare **Internal Server Error** with the
+real cause ("the table X does not exist") only visible in the server log.
+
+`src/instrumentation.ts` now checks at startup and prints every unapplied migration by
+name. Unlike the required-secrets check, this **warns rather than refuses to boot** — a
+pending migration usually breaks one feature while booking, queue, and records keep
+working, and taking a clinic's whole platform offline over a feature they may not have
+opened is the worse outcome.
+
 ## Docker
 
 `Dockerfile` builds a production standalone image (`ENV BUILD_STANDALONE=1` before the
