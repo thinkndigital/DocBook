@@ -9,10 +9,13 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phase 1 of 14** (see `ROADMAP.md`). Only the database schema,
-authentication, RBAC, and tenant isolation exist. There are no portals, no booking flow,
-no payments yet — don't assume features from later phases exist just because they're
-described in `ROADMAP.md`.
+**Current status: Phases 1–7 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
+engine with its double-booking guarantee, the bilingual patient marketplace, the
+representative portal, and payments/subscriptions/commissions. **Not built yet**: medical
+records & prescriptions (8), notifications/WhatsApp/calendar (9), AI (10), analytics (11),
+security hardening & the test suite (12), SEO/performance (13), deployment (14). Don't
+assume a later phase's feature exists just because `ROADMAP.md` describes its scope.
 
 ## Commands
 
@@ -107,8 +110,8 @@ ARCHITECTURE.md "i18n" for why this is narrower than Phase 1 originally sketched
 (`appointment_slot_unique` in the init migration) on
 `(doctorId, branchId, scheduledAt) WHERE status NOT IN ('CANCELLED', 'NO_SHOW')` is the
 hard backstop — cancelled/no-show appointments don't block rebooking the same slot. The
-booking route itself (Phase 4, not yet built) must additionally use a `SERIALIZABLE`
-transaction with a row lock before insert; don't rely on the unique index alone for the
+booking path (`createAppointment`) additionally runs inside a `SERIALIZABLE`
+transaction; don't rely on the unique index alone for the
 booking flow, it exists to catch bugs in that transaction logic, not replace it.
 
 **Money is integer minor units** (`priceMinor`, `amountMinor` — fils/halalas), never
@@ -123,6 +126,16 @@ models throw if no tenant context is set; optional models (e.g. `AuditLog`, `Not
 which can legitimately belong to a `PATIENT` or `SUPER_ADMIN` action with no tenant) allow
 `tenantId: null`. When adding a new tenant-scoped model to `schema.prisma`, add it to the
 correct set in `tenant.ts` or it won't be isolated at all.
+
+**Money splits are validated before the gateway is called.** `collectAppointmentPayment`
+(`src/lib/services/payments.ts`) computes the commission split *first*, so an impossible
+rule configuration refuses the payment (`409 COMMISSION_MISCONFIGURED`) instead of leaving
+a captured payment with no split. Don't reorder this. The platform's cut comes from the
+tenant's active `SubscriptionPlan.bookingCommissionPct`, rep/doctor cuts from
+`CommissionRule` rows (tenant-specific beats global `tenantId: null`), and the clinic takes
+the **exact remainder** so rounding can never mint or destroy fils — assert the split sums
+to the booking price in any test you add. `getPaymentProvider()` throws on an unknown
+`PAYMENT_PROVIDER` and refuses the dev adapter under `NODE_ENV=production` by design.
 
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass

@@ -727,7 +727,10 @@ model CommissionRule {
 model Commission {
   id               String               @id @default(uuid())
   appointmentId    String
-  commissionRuleId String
+  // Nullable: the clinic's remainder share and the platform cut derived from the tenant's
+  // subscription plan (SubscriptionPlan.bookingCommissionPct) are computed, not driven by
+  // a CommissionRule row. See src/lib/services/commissions.ts.
+  commissionRuleId String?
   representativeId String?
   tenantId         String
   entityType       CommissionEntityType
@@ -738,7 +741,7 @@ model Commission {
   paidAt           DateTime?
 
   appointment    Appointment     @relation(fields: [appointmentId], references: [id])
-  commissionRule CommissionRule  @relation(fields: [commissionRuleId], references: [id])
+  commissionRule CommissionRule? @relation(fields: [commissionRuleId], references: [id])
   representative Representative? @relation(fields: [representativeId], references: [id])
 
   @@index([representativeId])

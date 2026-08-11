@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/representatives', label: 'المندوبون' },
   { href: '/admin/settings/countries', label: 'الدول والمدن' },
   { href: '/admin/settings/plans', label: 'خطط الاشتراك' },
+  { href: '/admin/commission-rules', label: 'قواعد العمولات' },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

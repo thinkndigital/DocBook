@@ -11,7 +11,7 @@ no phase ships stubs or fake data paths (§47).
 | 4 | Appointment engine (schedules, availability calculation, transactional booking, double-booking guarantee) | **Delivered** |
 | 5 | Patient marketplace (search, doctor/clinic public profiles, i18n ar/en RTL/LTR, booking flow UI) | **Delivered** |
 | 6 | Representative portal (assigned accounts, book-on-behalf, commission dashboard, audit-limited access) | **Delivered** |
-| 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | Not started |
+| 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | **Delivered** |
 | 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | Not started |
 | 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, OAuth calendar sync) | Not started |
 | 10 | AI layer (doctor discovery, patient assistant, clinic assistant, analytics — Claude-backed, with medical disclaimers) | Not started |
@@ -151,8 +151,50 @@ search, admin stats, and clinical queue-status transitions (the structural permi
 exclusions doing their job); and after the clinic completed one booking, the rep's stats
 showed exactly 2 bookings / 1 completed / 20.00 JOD revenue / 4% of the 500 JOD target.
 
+## Phase 7 delivered
+
+Money now moves through the platform. A gateway-agnostic `PaymentProvider` interface
+(authorize/capture/refund/void) with a `DevPaymentAdapter`; the factory **throws** rather
+than falling back to dev when `PAYMENT_PROVIDER` is unrecognised, and refuses the dev
+adapter entirely under `NODE_ENV=production`, so a deploy that forgot to configure its
+gateway fails loudly instead of quietly "succeeding" at taking money. Every state change
+writes a `Transaction` ledger row. Clinics collect at the front desk (cash/card/insurance/
+transfer) and tenant admins can refund; refunds are `billing:manage_tenant` only, so a
+receptionist can take money but not give it back.
+
+The commission engine implements the brief's §17 example **without hard-coding any of its
+numbers**: the platform's cut comes from the tenant's active subscription plan
+(`bookingCommissionPct` — which is what makes the SaaS model coherent: Free takes a booking
+cut, Pro/Enterprise take 0% and monetise via the subscription fee), representative and
+doctor cuts come from `CommissionRule` rows (tenant-specific beats global), and the clinic
+receives the **exact remainder** so a split can never mint or destroy fils to rounding.
+
+Verified end-to-end against live Postgres:
+- The brief's worked example reproduced exactly — 20 JOD booking → platform 200, rep 60,
+  clinic 1740 fils, summing to precisely 2000.
+- Reconfigured to 25%/20%/5% purely through data (no code change) → platform 500, doctor
+  400, rep 100, clinic 1000; still summing to exactly 2000.
+- Rounding edge (333 fils, none of the percentages divide evenly) → 83 + 67 + 17 + 166 =
+  333 exactly.
+- Full refund moves the payment to `REFUNDED` and cancels every associated commission; a
+  double-refund is rejected; a receptionist attempting a refund gets 403.
+- Switching to Enterprise (0%) produced no platform row at all — clinic 1940, rep 60.
+- Subscription switching supersedes rather than edits, preserving billing history.
+
+One real bug was found and fixed during validation: commissions were originally generated
+*after* capture, so an impossible rule configuration left a captured payment with no split
+— an accounting hole. The split is now computed and validated **before** the gateway is
+contacted; a misconfiguration returns `409 COMMISSION_MISCONFIGURED` naming the exact
+amounts and takes no money at all (verified: zero payment rows written).
+
+Not implemented, deliberately: recurring subscription renewal billing and proration (needs
+a scheduler and a real gateway's recurring-charge support), and commission *payout* runs —
+commissions are computed and tracked through PENDING/CANCELLED, but marking them PAID is a
+finance-operations workflow, not something to fake here.
+
 ## Immediate next step
 
-Phase 7 (payments + subscriptions + commissions) — the `PaymentProvider` interface with a
-dev adapter, plan billing, and the configurable commission engine that consumes
-`bookedByRepresentativeId` and the `CommissionRule` table seeded in the Phase 1 schema.
+Phase 8 (medical records + prescriptions) — the encrypted-at-rest clinical data, signed
+attachment URLs, and prescription PDF generation described in SECURITY.md, plus the
+access-audit requirements that make `medical_record:*` the most sensitive permission in
+the matrix.

@@ -7,6 +7,7 @@ const NAV = [
   { href: '/rep', label: 'لوحة الأداء' },
   { href: '/rep/book', label: 'حجز موعد' },
   { href: '/rep/bookings', label: 'حجوزاتي' },
+  { href: '/rep/commissions', label: 'عمولاتي' },
 ];
 
 export default async function RepLayout({ children }: { children: React.ReactNode }) {
