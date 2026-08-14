@@ -74,15 +74,25 @@ cat <<'NOTE'
 
   DATABASE_URL
   Firebase provides Firestore, not Postgres, so this must point at a Postgres instance you
-  provision. Shortest path is a managed provider reachable over the public internet
-  (Neon or Supabase); Cloud SQL also works but needs VPC egress or a public IP with SSL.
+  provision. Fastest path, no card required:
 
-  Format:
-    postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+    1. https://neon.tech  ->  sign up  ->  Create project (pick the region nearest Amman,
+       e.g. AWS eu-central-1 Frankfurt)
+    2. Copy BOTH connection strings from the dashboard:
+         - "Pooled connection"  -> DATABASE_URL       (what the app uses)
+         - "Direct connection"  -> DIRECT_DATABASE_URL (what migrations use)
+
+  Why two: the app runs on several App Hosting instances, each with its own Prisma pool, so
+  it needs the pooled endpoint. Migrations cannot use it — they take a session-level
+  advisory lock that PgBouncer's transaction pooling does not preserve, so a migration
+  through the pooler hangs or fails with a confusing lock error.
+
+  Only DATABASE_URL becomes a secret. DIRECT_DATABASE_URL is used by the Prisma CLI, never
+  by the running app, so it does not belong in App Hosting at all.
 
 NOTE
 
-printf 'Paste DATABASE_URL (input hidden), or press Enter to skip: '
+printf 'Paste DATABASE_URL — the POOLED string (input hidden), or press Enter to skip: '
 read -rs DATABASE_URL_VALUE
 printf '\n'
 
@@ -90,6 +100,12 @@ if [[ -n "$DATABASE_URL_VALUE" ]]; then
   info "Storing DATABASE_URL"
   printf '%s' "$DATABASE_URL_VALUE" \
     | $FIREBASE apphosting:secrets:set DATABASE_URL --project "$PROJECT" --data-file - --force
+
+  printf '\nPaste DIRECT_DATABASE_URL — the DIRECT string, for migrations only\n'
+  printf '(input hidden; press Enter to reuse the one above, correct for a plain Postgres): '
+  read -rs DIRECT_DATABASE_URL_VALUE
+  printf '\n'
+  DIRECT_DATABASE_URL_VALUE="${DIRECT_DATABASE_URL_VALUE:-$DATABASE_URL_VALUE}"
 else
   warn "Skipped DATABASE_URL. The rollout will still fail until it is set."
 fi
@@ -123,20 +139,26 @@ if [[ -n "$DATABASE_URL_VALUE" ]]; then
   printf '\nApply Prisma migrations to that database now? [y/N] '
   read -r APPLY
   if [[ "$APPLY" =~ ^[Yy]$ ]]; then
-    info "Running prisma migrate deploy"
-    (cd "$REPO_ROOT" && DATABASE_URL="$DATABASE_URL_VALUE" npx prisma migrate deploy)
+    info "Running prisma migrate deploy (over the direct connection)"
+    (cd "$REPO_ROOT" \
+      && DATABASE_URL="$DATABASE_URL_VALUE" \
+         DIRECT_DATABASE_URL="$DIRECT_DATABASE_URL_VALUE" \
+         npx prisma migrate deploy)
     printf '\nSeed demo data (creates sample accounts — do NOT run against real data)? [y/N] '
     read -r SEED
     if [[ "$SEED" =~ ^[Yy]$ ]]; then
-      (cd "$REPO_ROOT" && DATABASE_URL="$DATABASE_URL_VALUE" npx prisma db seed)
+      (cd "$REPO_ROOT" \
+        && DATABASE_URL="$DATABASE_URL_VALUE" \
+           DIRECT_DATABASE_URL="$DIRECT_DATABASE_URL_VALUE" \
+           npx prisma db seed)
     fi
   else
     warn "Migrations not applied. Run before promoting the rollout:
-  DATABASE_URL='...' npx prisma migrate deploy"
+  DATABASE_URL='<pooled>' DIRECT_DATABASE_URL='<direct>' npx prisma migrate deploy"
   fi
 fi
 
-unset DATABASE_URL_VALUE
+unset DATABASE_URL_VALUE DIRECT_DATABASE_URL_VALUE
 
 cat <<NOTE
 

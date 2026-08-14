@@ -5,6 +5,21 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+
+  /// Serverless Postgres providers (Neon, Supabase) hand out two connection strings: a
+  /// *pooled* one through PgBouncer in transaction mode, and a *direct* one.
+  ///
+  /// The app wants the pooled endpoint — App Hosting scales to several instances, each with
+  /// its own Prisma connection pool, and a small Postgres would otherwise run out of
+  /// connections. But `prisma migrate` cannot use it: migrations take a session-level
+  /// advisory lock to stop two deploys racing, and transaction pooling does not preserve
+  /// session state, so the lock silently belongs to a different backend each statement. The
+  /// symptom is a migration that hangs or fails with a confusing lock error.
+  ///
+  /// `directUrl` is Prisma's answer: migrations and introspection use it, the running app
+  /// uses `url`. Set both to the same value for a plain single Postgres (local, Cloud SQL);
+  /// set them differently on Neon/Supabase.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ---------- Enums ----------

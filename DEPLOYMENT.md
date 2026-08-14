@@ -103,14 +103,52 @@ note, prescription, and TOTP secret. Rotating it without re-encrypting existing 
 that content unreadable — `decryptField` returns its marker rather than throwing, so the app
 survives, but the data is gone. Back it up separately from the database.
 
+### Getting a Postgres
+
+Firestore is not an option here, and the gap is not a small one: the double-booking
+guarantee is a Postgres **partial unique index** plus a `SERIALIZABLE` transaction, and
+tenant isolation assumes relational `where` rewriting. Those are the two properties the
+whole product rests on, so the database stays relational.
+
+**Recommended: Neon** — free tier, no card, Postgres over the public internet, so App
+Hosting reaches it with no VPC connector or Cloud SQL proxy.
+
+1. Sign up at neon.tech and create a project. Pick the region nearest your users — for
+   Amman, AWS `eu-central-1` (Frankfurt) is the usual choice.
+2. Copy **both** connection strings from the dashboard.
+3. Run `./scripts/setup-apphosting.sh`, which asks for both.
+
+Alternatives: **Supabase** (same shape, also free), or **Cloud SQL** if you want the
+database inside the same GCP project — it bills from the first hour and needs VPC egress or
+a public IP with SSL, so it is the slower start.
+
+### Why there are two connection strings
+
+`prisma/schema.prisma` declares both `url` and `directUrl`:
+
+| Variable | Used by | Which endpoint |
+|---|---|---|
+| `DATABASE_URL` | the running app | **pooled** (PgBouncer) |
+| `DIRECT_DATABASE_URL` | `prisma migrate`, `prisma db seed` | **direct** |
+
+The app runs across several App Hosting instances, each holding its own Prisma connection
+pool, so it needs the pooled endpoint or a small Postgres runs out of connections.
+Migrations cannot use that endpoint: they take a **session-level advisory lock** to stop two
+deploys racing, and transaction pooling does not preserve session state, so the lock ends up
+on a different backend from one statement to the next. The symptom is a migration that hangs
+or fails with a lock error that reads like a database problem rather than a routing one.
+
+`DIRECT_DATABASE_URL` is a **Prisma CLI variable only** — verified: the app queries fine
+with it unset. It therefore does not belong in `apphosting.yaml`, only in your shell and in
+CI. For a plain single Postgres (local, Cloud SQL) set both to the same value.
+
 ### Three things App Hosting does not give you
 
 These do not stop a rollout going green, which is exactly why they are worth stating.
 
-1. **Postgres.** Firebase provides Firestore; this app is Prisma on Postgres. `DATABASE_URL`
-   must point at a managed instance you provision — Cloud SQL (App Hosting reaches it over
-   VPC egress or a public IP with SSL), or Neon/Supabase over the public internet, which is
-   the shorter path. Until then the app boots and every data-backed page fails.
+1. **Postgres.** Firebase provides Firestore; this app is Prisma on Postgres. Until
+   `DATABASE_URL` points at a real instance, the app boots and every data-backed page fails.
+   See "Getting a Postgres" below.
 2. **A migration step.** App Hosting builds and serves; it never runs
    `prisma migrate deploy`. An un-migrated database produces exactly the "Internal Server
    Error" class documented above. Run migrations from CI or by hand against the production
