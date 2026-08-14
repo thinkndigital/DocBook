@@ -7,6 +7,7 @@ import * as clinical from '@/lib/validation/clinical';
 import * as doctor from '@/lib/validation/doctor';
 import * as patient from '@/lib/validation/patient';
 import * as representative from '@/lib/validation/representative';
+import * as security from '@/lib/validation/security';
 import * as schedule from '@/lib/validation/schedule';
 import * as tenant from '@/lib/validation/tenant';
 import type { Permission } from '@/types/rbac';
@@ -349,6 +350,31 @@ export const ROUTES: Record<string, RouteMeta> = {
     summary: 'Mark all of the caller\'s notifications read.',
     auth: 'notification:read_own',
     tag: 'Notifications',
+  },
+
+
+  // ---- Account security (Phase 12) ----
+  'GET /api/v1/account/two-factor': {
+    summary: "Second-factor status for the signed-in account. Never returns the secret or backup codes.",
+    auth: 'session',
+    tag: 'Account',
+  },
+  'POST /api/v1/account/two-factor': {
+    summary: 'Begin enrollment: returns a TOTP secret and otpauth URI. Does not enable 2FA yet.',
+    auth: 'session',
+    tag: 'Account',
+  },
+  'PUT /api/v1/account/two-factor': {
+    summary: 'Confirm enrollment with a code from the authenticator. Returns single-use backup codes once.',
+    auth: 'session',
+    body: security.twoFactorCodeSchema,
+    tag: 'Account',
+  },
+  'DELETE /api/v1/account/two-factor': {
+    summary: 'Disable 2FA. Requires a currently-valid TOTP or backup code.',
+    auth: 'session',
+    body: security.twoFactorCodeSchema,
+    tag: 'Account',
   },
 
   // ---- Meta ----

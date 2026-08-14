@@ -9,14 +9,13 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–11 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–12 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
 representative portal, payments/subscriptions/commissions, medical records &
 prescriptions, notifications/calendar, and the AI layer (symptom triage, patient assistant,
 clinic briefing, no-show risk), and role-scoped analytics with a generated OpenAPI document.
-**Not built yet**: security hardening & the test suite (12), SEO/performance (13),
-deployment (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
+**Not built yet**: SEO/performance (13), deployment (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
 describes its scope.
 
 ## Commands
@@ -35,8 +34,10 @@ npx prisma validate         # schema syntax check (needs DATABASE_URL set, even 
 docker compose up -d db     # local Postgres 16 on :5432 (user/pass/db all "docbook")
 ```
 
-No test suite exists yet (Phase 12). Validate changes with `npm run build` and
-`npx tsc --noEmit` — most errors surface there. For anything touching `prisma/schema.prisma`
+`npm run test` runs the suite (91 tests). Integration tests need a real Postgres with
+migrations applied — they fail loudly rather than skipping, because a silently-skipped
+double-booking test is how that guarantee quietly stops being true. Also validate with
+`npm run build` and `npx tsc --noEmit`. For anything touching `prisma/schema.prisma`
 or the booking/appointment logic, also run a migration against a real Postgres instance
 (`docker compose up -d db` or a local `postgres` install) — schema mistakes and
 constraint behavior (see the double-booking guarantee below) don't show up in `tsc`.
@@ -152,6 +153,12 @@ and revenue appear in neither the first tenant's dashboard nor its CSV export.
 schemas, and errors if a handler has no entry in `src/lib/openapi/registry.ts` or an entry
 has no handler. Add the registry entry when you add a route — don't hand-edit
 `public/openapi.json`.
+
+**`runWithTenant` must await inside the context.** It wraps the callback in
+`async () => await fn()` deliberately: Prisma returns a *lazy* promise, so
+`storage.run(ctx, fn)` with a callback that returns a query directly executes it outside
+the AsyncLocalStorage context, where the middleware applies no tenant filter and returns
+other tenants' rows with no error. Don't "simplify" that wrapper.
 
 **Money is integer minor units** (`priceMinor`, `amountMinor` — fils/halalas), never
 floats, with a sibling `currency` column. **Country/city data is rows, not constants** —

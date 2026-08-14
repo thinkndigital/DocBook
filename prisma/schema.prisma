@@ -276,7 +276,14 @@ model User {
   nameAr            String?
   locale            String     @default("ar")
   twoFactorEnabled  Boolean    @default(false)
+  /// Base32 TOTP secret. Encrypted at rest with the same field encryption as clinical data —
+  /// a leaked database must not hand over the second factor along with the first.
   twoFactorSecret   String?
+  /// Bcrypt hashes of single-use recovery codes. Hashed, never stored in the clear: they
+  /// are password-equivalent, and their whole purpose is to work when the authenticator is
+  /// gone — which is exactly when a stolen list would be most useful to an attacker.
+  twoFactorBackupCodes String[]  @default([])
+  twoFactorEnrolledAt  DateTime?
   // Per-channel opt-out, e.g. { "SMS": false, "WHATSAPP": false }. Absent/true = enabled.
   // Kept as JSON rather than a table: it's a small per-user preference blob that is only
   // ever read whole, never queried across users.
@@ -940,6 +947,32 @@ model AiInteraction {
   @@index([actorKey, createdAt])
   @@index([tenantId, createdAt])
   @@map("ai_interactions")
+}
+
+// ---------- Security (Phase 12) ----------
+
+/// Generic rate-limit / lockout ledger.
+///
+/// One row per attempt, counted over a window. Deliberately database-backed rather than an
+/// in-process counter: this app runs behind a load balancer with N replicas, so an
+/// in-memory limit of 10/hour is really 10N/hour and resets on every deploy. For login
+/// throttling that is the difference between a control and a decoration.
+///
+/// `key` is always a **salted hash** of the subject (IP, email, or user id) — the limiter
+/// only ever needs equality, never the value, and storing raw addresses against login
+/// timestamps would build a movement log with no operational upside.
+model RateLimitHit {
+  id        String   @id @default(uuid())
+  /// Which limit this belongs to, e.g. "login", "register", "ai:triage".
+  bucket    String
+  /// Salted hash of the subject.
+  key       String
+  /// False for a failed attempt — lets the login limiter count only failures.
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([bucket, key, createdAt])
+  @@map("rate_limit_hits")
 }
 
 // ---------- Audit ----------

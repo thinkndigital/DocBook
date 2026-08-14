@@ -29,13 +29,17 @@ research only from public healthcare marketplaces, no shared branding/code/copy.
 - Notifications across channels behind a provider abstraction, plus a read-only doctor iCal feed
 - The AI layer: symptom triage, patient assistant, clinic briefing, and no-show risk scoring
 - Role-scoped analytics dashboards, CSV export, and a generated OpenAPI document
+- TOTP two-factor auth, rate limiting and login lockout, security headers, and a 91-test suite
 
-Not built yet: security hardening and the test suite (12), SEO/performance (13), production
-deployment (14).
+Not built yet: SEO/performance (13), production deployment (14).
 
-There is no test suite yet — that is Phase 12. Each phase so far has been validated by hand
-against a live Postgres and a production build; what was checked is recorded per phase in
-ROADMAP.md.
+```bash
+npm run test        # 91 tests; integration needs a running Postgres with migrations applied
+npm run test:unit   # pure-function tests only, no database
+```
+
+The suite covers the brief's non-negotiable directly: five and twenty concurrent bookings of
+one slot yield exactly one appointment. What each phase verified is recorded in ROADMAP.md.
 
 ## Quickstart
 

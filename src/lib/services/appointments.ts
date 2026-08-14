@@ -86,6 +86,48 @@ async function nextQueueToken(doctorId: string, branchId: string, date: string):
  * instead of used to look the doctor up, so booking another tenant's doctor 404s rather
  * than silently cross-linking.
  */
+/**
+ * Retries a transaction that Postgres aborted for serialization reasons.
+ *
+ * `SERIALIZABLE` does not only reject genuinely conflicting writes. Postgres takes
+ * *predicate* locks, so two transactions whose read sets overlap can both be aborted with
+ * SQLSTATE 40001 ("could not serialize access") even when they would have written
+ * different rows — two different clinics booking the same wall-clock instant is exactly
+ * that shape. Prisma surfaces it as P2034.
+ *
+ * Before this existed, that abort propagated as an unhandled error: a 500 on a booking
+ * that was never in conflict with anything. Found by the Phase 12 suite, where the
+ * "two different doctors at the same instant" case failed roughly one run in three.
+ *
+ * Retrying is safe. The invariant is enforced by the partial unique index and a fresh
+ * transaction, so a retry that races a genuine double-booking still loses on P2002 and
+ * becomes SlotTakenError. Attempts are bounded and jittered so a burst doesn't
+ * resynchronise into another collision.
+ */
+const SERIALIZATION_RETRY_ATTEMPTS = 4;
+
+async function withSerializationRetry<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < SERIALIZATION_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await operation();
+    } catch (err) {
+      const isSerializationFailure =
+        err instanceof Prisma.PrismaClientKnownRequestError && (err.code === 'P2034' || err.code === 'P2037');
+      if (!isSerializationFailure) throw err;
+
+      lastError = err;
+      // 10-30ms, 20-60ms, 40-120ms: enough to break the tie, short enough that a patient
+      // never perceives it.
+      const backoffMs = 10 * 2 ** attempt * (1 + Math.random());
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  throw lastError;
+}
+
 export async function createAppointment(input: CreateAppointmentInput, actor: SessionUser) {
   const doctor = await db.doctor.findUnique({ where: { id: input.doctorId } });
   if (!doctor) throw new InvalidReferenceError('Doctor does not exist.');
@@ -156,29 +198,31 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
   const queueToken = await nextQueueToken(input.doctorId, input.branchId, date);
 
   try {
-    const appointment = await db.$transaction(
-      async (tx) =>
-        tx.appointment.create({
-          data: {
-            tenantId,
-            branchId: input.branchId,
-            doctorId: input.doctorId,
-            patientId,
-            serviceId: input.serviceId,
-            bookedByUserId: actor.id,
-            bookedByRepresentativeId: representativeId,
-            type: input.type,
-            status: 'CONFIRMED',
-            scheduledAt,
-            durationMinutes,
-            queueToken,
-            priceMinor: service.priceMinor,
-            currency: service.currency,
-            notes: input.notes,
-          },
-          include: APPOINTMENT_INCLUDE,
-        }),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    const appointment = await withSerializationRetry(() =>
+      db.$transaction(
+        async (tx) =>
+          tx.appointment.create({
+            data: {
+              tenantId,
+              branchId: input.branchId,
+              doctorId: input.doctorId,
+              patientId,
+              serviceId: input.serviceId,
+              bookedByUserId: actor.id,
+              bookedByRepresentativeId: representativeId,
+              type: input.type,
+              status: 'CONFIRMED',
+              scheduledAt,
+              durationMinutes,
+              queueToken,
+              priceMinor: service.priceMinor,
+              currency: service.currency,
+              notes: input.notes,
+            },
+            include: APPOINTMENT_INCLUDE,
+          }),
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      )
     );
 
     await recordAudit({

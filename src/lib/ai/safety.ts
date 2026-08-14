@@ -212,10 +212,20 @@ export function normalize(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFKD')
-    // Arabic diacritics (harakat) and tatweel.
-    .replace(/[ً-ْـ]/g, '')
-    // Combining marks left over from NFKD on Latin text.
-    .replace(/[̀-ͯ]/g, '')
+    // Strip EVERY Unicode combining mark, not a hand-picked range.
+    //
+    // This was two explicit ranges (Arabic harakat U+064B–U+0652 and Latin combining marks
+    // U+0300–U+036F) and it was wrong in a way that mattered: NFKD decomposes أ (U+0623)
+    // into ا + COMBINING HAMZA ABOVE (U+0654), which sat in neither range. The leftover
+    // hamza then hit the punctuation rule below and became a *space*, so "ألم في الصدر"
+    // normalised to "ا لم في الصدر" and never matched the chest-pain red flag. Phase 10's
+    // manual check passed only because the same sentence also contained ضيق في التنفس,
+    // which matched a different category — the emergency path looked healthy while its
+    // most important Arabic phrase was dead. \p{M} covers marks in every script, including
+    // the ones the next language added to this product will bring.
+    .replace(/\p{M}/gu, '')
+    // Tatweel is a formatting elongation, not a mark, so it needs its own removal.
+    .replace(/ـ/g, '')
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ى/g, 'ي')
     .replace(/ؤ/g, 'و')
@@ -294,6 +304,9 @@ const DIAGNOSTIC_PATTERNS = [
   /\byou (?:have|are suffering from|are diagnosed with)\b/i,
   /\bthis is (?:definitely|certainly) [a-z]/i,
   /\byou should take \d/i,
+  // No \b before "mg": dosages are written "400mg" as often as "400 mg", and a word
+  // boundary between a digit and a letter does not exist.
+  /\d\s*mg\b/i,
   /\bmg\b\s*(?:of|per|daily|twice)/i,
   /انت مصاب ب/,
   /تشخيصك هو/,

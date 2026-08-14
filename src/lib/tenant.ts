@@ -14,7 +14,22 @@ const storage = new AsyncLocalStorage<TenantContext>();
  * Application code should not need to pass tenantId into `where` clauses manually.
  */
 export function runWithTenant<T>(ctx: TenantContext, fn: () => Promise<T>): Promise<T> {
-  return storage.run(ctx, fn);
+  // The `async` wrapper is load-bearing, not style. Prisma's client returns a *lazy*
+  // PrismaPromise: the query — and therefore the middleware below, and therefore
+  // `getTenantContext()` — only runs when the promise is awaited. Written as
+  // `storage.run(ctx, fn)`, a caller passing a non-async arrow that returns a query
+  // directly (`() => db.branch.findMany()`) has that query executed *outside* the
+  // AsyncLocalStorage context, where the middleware sees no tenant and applies no filter.
+  // The result is a silent cross-tenant read: no error, just other tenants' rows.
+  //
+  // Awaiting inside the context here makes the scoping hold no matter how the callback is
+  // written. Found by the Phase 12 integration suite; every existing call site happened to
+  // pass an async function and so was never affected, which is precisely why it could have
+  // survived a refactor unnoticed.
+  // `await fn()` rather than `return fn()`: the await invokes the lazy promise's `then`
+  // synchronously inside this function body — that is, inside the context. A bare return
+  // defers adoption of the promise by a tick, which is exactly long enough to lose it.
+  return storage.run(ctx, async () => await fn());
 }
 
 export function getTenantContext(): TenantContext | undefined {

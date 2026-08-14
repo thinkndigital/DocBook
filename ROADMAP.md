@@ -16,7 +16,7 @@ no phase ships stubs or fake data paths (§47).
 | 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, iCal feed) | **Delivered** |
 | 10 | AI layer (doctor discovery, patient assistant, clinic assistant — Claude-backed, with medical disclaimers) | **Delivered** |
 | 11 | Analytics (KPIs, dashboards, OpenAPI docs) | **Delivered** |
-| 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | Not started |
+| 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | **Delivered** |
 | 13 | Performance + SEO (structured data, sitemaps, Core Web Vitals pass) | Not started |
 | 14 | Production deployment (CI/CD, backups, monitoring, chosen cloud target) | Not started |
 
@@ -373,8 +373,39 @@ Not built, deliberately: scheduled/emailed reports and materialised rollup table
 premature — rollups optimise a query that is currently fast on real data volumes, and
 choosing when to denormalise without production numbers is guesswork.
 
+## Phase 12 — Security hardening + QA (delivered)
+
+**91 automated tests** (`npm run test`), split into a parallel unit project and a
+single-forked integration project that runs against a real Postgres. Full detail in
+SECURITY.md; the headline is that the brief's non-negotiable double-booking guarantee is now
+enforced by the build rather than by remembering to check it.
+
+Delivered: the test suite, TOTP two-factor with hashed single-use backup codes, a
+database-backed rate limiter with login lockout, security headers including a CSP, and a
+review of the Phase 8 upload path.
+
+**The suite found three real defects on its first run** — a silent tenant-scoping loss when
+`runWithTenant` is handed a lazy Prisma promise, a dead Arabic chest-pain red flag caused by
+NFKD decomposition, and valid bookings 500-ing on `SERIALIZABLE` predicate-lock aborts. All
+three are described in SECURITY.md with what they would have cost. The second is the one
+worth dwelling on: Phase 10's manual check passed for the wrong reason, which is precisely
+the failure mode a suite exists to prevent.
+
+Remaining hardening work, recorded rather than implied:
+- **Nonce-based CSP `script-src`.** Currently `'unsafe-inline'` because Next.js App Router
+  hydration requires it without nonce plumbing. See SECURITY.md for why a strict-looking
+  policy that breaks hydration would be worse.
+- **A shared token bucket (Redis) in front of the whole API.** The database limiter counts
+  completed attempts, so a simultaneous burst can slip a few over the line. It bounds abuse;
+  it is not a hard concurrency gate.
+- **Pruning `rate_limit_hits`.** `pruneRateLimitHits()` exists and nothing calls it on a
+  schedule — the scheduler arrives with Phase 14, and pretending a cron exists would be
+  worse than saying so.
+- **A QR code for 2FA enrollment.** The `otpauth://` URI is returned and every mainstream
+  authenticator accepts a typed secret, so enrollment works; rendering the QR needs an image
+  dependency.
+
 ## Immediate next step
 
-Phase 12 (security hardening + QA) — 2FA, a shared rate limiter in front of the whole API,
-and the automated test suite, starting with the booking-conflict test that has so far been
-verified by hand each phase.
+Phase 13 (performance + SEO) — structured data, sitemaps, and a Core Web Vitals pass over
+the public marketplace.

@@ -3,6 +3,8 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
+import { RATE_LIMITS, checkLimit, clearFailures, recordAttempt, subjectKey } from '@/lib/security/rate-limit';
+import { verifySecondFactor, TwoFactorRateLimitedError } from '@/lib/services/two-factor';
 import type { UserRole } from '@prisma/client';
 
 export interface SessionUser {
@@ -39,9 +41,30 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        // Supplied on the second step of login, once the account is known to require it.
+        totpCode: { label: 'Authentication code', type: 'text' },
       },
       async authorize(credentials, req): Promise<NextAuthUser | null> {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Lockout subject is email+IP together, not either alone. Email-only lets anyone
+        // lock a known user out of their own account by failing on purpose; IP-only lets a
+        // shared clinic connection be exhausted by one careless typist.
+        const ip = getIp(req);
+        const limitKey = subjectKey('login', credentials.email.toLowerCase(), ip);
+
+        const verdict = await checkLimit(RATE_LIMITS.login, limitKey);
+        if (!verdict.allowed) {
+          await recordAudit({
+            action: 'LOGIN_RATE_LIMITED',
+            entityType: 'User',
+            entityId: null,
+            ipAddress: ip,
+          });
+          // Deliberately indistinguishable from a wrong password: telling an attacker
+          // "this account is locked" confirms the account exists.
+          return null;
+        }
 
         const user = await db.user.findUnique({ where: { email: credentials.email } });
 
@@ -51,13 +74,46 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, passwordHash);
 
         if (!user || !valid || user.status !== 'ACTIVE' || user.deletedAt) {
+          await recordAttempt(RATE_LIMITS.login, limitKey, false);
           await recordAudit({
             action: 'LOGIN_FAILED',
             entityType: 'User',
             entityId: user?.id ?? null,
-            ipAddress: getIp(req),
+            ipAddress: ip,
           });
           return null;
+        }
+
+        // Second factor, when the account has one. Checked after the password so an
+        // attacker cannot use the 2FA prompt itself to discover which accounts exist.
+        if (user.twoFactorEnabled) {
+          const code = credentials.totpCode?.trim();
+          if (!code) {
+            // A distinct signal so the login form can show the code field. It reveals
+            // nothing an attacker who already has the correct password doesn't have.
+            throw new Error('TWO_FACTOR_REQUIRED');
+          }
+
+          let secondFactorOk = false;
+          try {
+            secondFactorOk = await verifySecondFactor(user.id, code);
+          } catch (err) {
+            if (err instanceof TwoFactorRateLimitedError) throw new Error('TWO_FACTOR_RATE_LIMITED');
+            throw err;
+          }
+
+          if (!secondFactorOk) {
+            await recordAttempt(RATE_LIMITS.login, limitKey, false);
+            await recordAudit({
+              actorUserId: user.id,
+              tenantId: user.tenantId,
+              action: 'TWO_FACTOR_FAILED',
+              entityType: 'User',
+              entityId: user.id,
+              ipAddress: ip,
+            });
+            return null;
+          }
         }
 
         // A suspended tenant's staff/doctors/receptionists lose access immediately —
@@ -79,6 +135,9 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
+        // A user who mistyped four times then succeeded shouldn't stay one slip away from
+        // a lockout for the rest of the window.
+        await clearFailures(RATE_LIMITS.login, limitKey);
         await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
         await recordAudit({
           actorUserId: user.id,
@@ -86,7 +145,7 @@ export const authOptions: NextAuthOptions = {
           action: 'LOGIN_SUCCESS',
           entityType: 'User',
           entityId: user.id,
-          ipAddress: getIp(req),
+          ipAddress: ip,
         });
 
         return {

@@ -94,6 +94,107 @@ rows whose actor key resembles an IP address.
 no route or page can render a suggestion without one. They are versioned
 (`MEDICAL_DISCLAIMER_VERSION`) and every ledger row records which version the user saw.
 
+## Phase 12 — hardening and the test suite
+
+### The test suite is now the guarantee
+
+`npm run test` runs 91 tests: unit (pure functions, parallel) and integration (a real
+Postgres, single-forked). The brief's non-negotiable — "two users must NEVER be able to
+successfully book the same appointment slot" — had been demonstrated by hand at the end of
+every phase since Phase 4. A manual check proves the code worked on the afternoon someone
+remembered to run it; `tests/integration/booking-conflict.test.ts` makes it a property the
+build enforces, including a 20-way concurrent burst and the cancelled-slot-is-reusable case
+that the *partial* unique index exists for.
+
+Integration tests run against a real database on purpose. The double-booking guarantee is a
+partial unique index plus a `SERIALIZABLE` transaction, and tenant isolation is a Prisma
+middleware — all below anything a mock could stand in for. A mocked version of those tests
+would assert that the test double behaves.
+
+### Three real defects the suite found on its first run
+
+1. **Tenant scoping could be silently lost.** `runWithTenant(ctx, fn)` used
+   `storage.run(ctx, fn)`. Prisma returns a *lazy* promise, so a caller passing a non-async
+   callback that returns a query directly (`() => db.branch.findMany()`) had that query
+   execute outside the `AsyncLocalStorage` context — where the middleware sees no tenant and
+   applies no filter. The result was a cross-tenant read with no error, just other tenants'
+   rows. Every existing call site happened to pass an async function, which is exactly why
+   it could have survived a refactor unnoticed. Fixed by awaiting inside the context.
+2. **The Arabic emergency path was dead for its most important phrase.** `normalize()` in
+   the AI safety layer stripped two hand-picked Unicode ranges after `NFKD`. NFKD decomposes
+   أ into ا plus a combining hamza that sat in neither range, so the leftover mark became a
+   *space*: "ألم في الصدر" normalised to "ا لم في الصدر" and never matched the chest-pain red
+   flag. Phase 10's manual check passed only because the test sentence also contained ضيق في
+   التنفس, which matched a different category — the emergency path looked healthy while its
+   headline Arabic phrase did nothing. Now strips `\p{M}` (all marks, every script).
+3. **Valid bookings could fail with a 500.** `SERIALIZABLE` takes predicate locks, so two
+   transactions with overlapping read sets can both abort with SQLSTATE 40001 even when
+   they would write different rows — two *different* clinics booking the same instant is
+   that shape. Prisma raises P2034, which nothing caught. `createAppointment` now retries
+   with bounded jittered backoff; the unique index still enforces the invariant, so a retry
+   racing a genuine double-booking loses on P2002 and becomes `SlotTakenError`.
+
+### Two-factor authentication
+
+TOTP (RFC 6238) with bcrypt-hashed single-use backup codes. Hand-written rather than taken
+from a package, and that choice is only defensible because the algorithm ships with official
+test vectors: `tests/unit/totp.test.ts` runs the RFC 4226 Appendix D and RFC 6238 Appendix B
+vectors directly, so interoperability with Google Authenticator, Authy, and 1Password is
+demonstrated rather than assumed.
+
+- The **secret is encrypted at rest** with the same AES-256-GCM field encryption used for
+  clinical narrative. A TOTP secret is a symmetric key, not a hash — plaintext in a backup
+  means valid codes forever. *Verified*: the stored value never contains the secret.
+- **Enrollment is two-step.** The secret is stored but 2FA stays off until the user produces
+  a valid code, so a phone that failed to scan does not lock them out at next login.
+- **Backup codes are hashed and single-use**, deleted on consumption — there is no state in
+  which a used recovery code replays. *Verified*.
+- **Disabling requires a valid current factor**, so a hijacked session cannot strip the
+  protection it was supposed to be gated on.
+- Verification is timing-safe and accepts ±1 time step for clock drift; the attempt limit,
+  not the window, is what constrains guessing.
+
+### Rate limiting and login lockout
+
+`src/lib/security/rate-limit.ts` generalises the Phase 10 AI limiter. Database-backed, so
+the limit holds across replicas and restarts rather than being `N ×` the intended value
+behind a load balancer.
+
+- Login locks out after 10 **failures** in 15 minutes, keyed on **email + IP together**:
+  email-only lets anyone lock a known user out on purpose, IP-only lets one careless typist
+  exhaust a shared clinic connection. Successes never count, and a success clears the
+  failures.
+- A locked-out attempt is indistinguishable from a wrong password — saying "this account is
+  locked" confirms the account exists.
+- Subjects are stored as salted SHA-256 hashes. A limiter needs equality, never the value;
+  raw IPs and emails against login timestamps would be a movement log with no upside.
+  *Verified*: the table contains neither the email nor the IP used in the test.
+- It **fails open** on a database error. An unthrottled login during an outage is bad; a
+  closed limiter means nobody can sign in at all, and the outage already stops an attacker
+  doing anything useful with a stolen password.
+
+### Security headers
+
+Set for every route in `next.config.js`: CSP, `X-Frame-Options: DENY`, `nosniff`,
+`Referrer-Policy`, `Permissions-Policy` (camera/mic/geolocation/payment/USB all denied),
+HSTS, and same-origin COOP/CORP. `poweredByHeader` is off.
+
+**The CSP is deliberately not strict on `script-src`.** It includes `'unsafe-inline'`
+because Next.js's App Router bootstraps hydration with inline scripts, and locking that down
+properly needs per-request nonces threaded through middleware. Shipping a strict-looking
+policy that breaks hydration — or that a developer disables the first time a page goes blank
+— would be worse than one that is honest. What the policy does buy is real: `object-src
+'none'`, `base-uri 'self'`, `frame-ancestors 'none'`, `form-action 'self'`, and
+`connect-src 'self'`. Nonce-based `script-src` is recorded in ROADMAP.md as remaining work.
+
+### File uploads (reviewed, already hardened in Phase 8)
+
+Re-reviewed rather than rebuilt: content type comes from magic-byte sniffing (never the
+browser's `Content-Type`), size is capped at 10 MB, storage keys are random UUIDs so the
+user's filename never reaches a path, the local adapter rejects traversal, and the download
+route re-checks session and per-patient permission rather than trusting the signature.
+`nosniff` now also applies, so a stored document cannot be re-interpreted as HTML.
+
 ## Deferred to later phases, scoped now so nothing is designed out
 
 - **2FA (TOTP) for admins** — `User.twoFactorSecret` + `twoFactorEnabled` columns exist

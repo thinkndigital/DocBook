@@ -11,7 +11,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "openapi": "tsx scripts/generate-openapi.ts"
+    "openapi": "tsx scripts/generate-openapi.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:watch": "vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -39,6 +42,7 @@
     "tailwindcss": "^3.4.10",
     "tsx": "^4.19.0",
     "typescript": "^5.6.2",
+    "vitest": "^2.1.9",
     "zod-to-json-schema": "^3.23.5"
   }
 }
