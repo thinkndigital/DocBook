@@ -65,6 +65,20 @@ env:
     availability:
       - RUNTIME
 
+  # The same origin, but needed at BUILD as well as RUNTIME — which is why it is a separate
+  # variable rather than reusing NEXTAUTH_URL above.
+  #
+  # robots.txt, the sitemap and `metadataBase` (which resolves every canonical and hreflang
+  # tag) are baked into statically rendered output during `next build`. A build that cannot
+  # read this emits canonicals pointing at localhost: the deploy succeeds, the pages render
+  # correctly to a human, and search engines are told the whole site duplicates a host they
+  # cannot reach. Keep both entries in step if the domain changes.
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://docbook--studio-4511819966-bc14f.us-central1.hosted.app
+    availability:
+      - BUILD
+      - RUNTIME
+
   # The rule-based assistant is a real production choice, not a stub: keyword triage over
   # the tenant's own Specialty rows, no key, and no symptom text leaving the platform. Set
   # AI_PROVIDER=claude and add an ANTHROPIC_API_KEY secret to switch.

@@ -1,9 +1,26 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
+import { JsonLd } from '@/components/seo/json-ld';
+import { breadcrumbJsonLd } from '@/lib/seo/json-ld';
+import { alternatesFor } from '@/lib/seo/site';
 import { searchDoctors, listPublicSpecialties, listPublicCities } from '@/lib/services/marketplace';
 import { Badge } from '@/components/ui/badge';
 
+// Stays request-rendered: the results are driven by searchParams, so there is no shared
+// output to cache. The canonical below is the *unfiltered* URL, so the same doctor reached
+// through a dozen filter combinations consolidates into one indexed page instead of a
+// dozen near-duplicates competing with each other.
 export const dynamic = 'force-dynamic';
+
+export function generateMetadata({ params }: { params: { locale: Locale } }): Metadata {
+  const dict = getDictionary(params.locale);
+  return {
+    title: dict.seo.doctorsTitle,
+    description: dict.seo.doctorsDescription,
+    alternates: alternatesFor(params.locale, '/doctors'),
+  };
+}
 
 export default async function DoctorsSearchPage({
   params,
@@ -29,6 +46,12 @@ export default async function DoctorsSearchPage({
 
   return (
     <div>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: dict.seo.breadcrumbHome, path: `/${params.locale}` },
+          { name: dict.seo.breadcrumbDoctors, path: `/${params.locale}/doctors` },
+        ])}
+      />
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">{dict.doctors.title}</h1>
 
       <form className="mb-8 grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-4" method="get">

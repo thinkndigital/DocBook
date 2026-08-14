@@ -2,21 +2,27 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
 
 interface Props {
   locale: Locale;
   dict: Dictionary;
   doctorId: string;
-  isAuthenticatedPatient: boolean;
   branches: Array<{ id: string; name: string; nameAr?: string }>;
   services: Array<{ id: string; name: string; nameAr: string; priceMinor: number; currency: string }>;
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-export function BookingWidget({ locale, dict, doctorId, isAuthenticatedPatient, branches, services }: Props) {
+export function BookingWidget({ locale, dict, doctorId, branches, services }: Props) {
   const router = useRouter();
+  // Read here rather than as a prop from the server. The profile page is statically
+  // rendered and cached (see its `revalidate`), which it could not be if the server had to
+  // know who was asking; a cached page that baked in one visitor's signed-in state would
+  // then show it to everyone. This is also the only component that needs the answer.
+  const { status, data: session } = useSession();
+  const isAuthenticatedPatient = session?.user?.role === 'PATIENT';
   const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
   const [serviceId, setServiceId] = useState(services[0]?.id ?? '');
   const [date, setDate] = useState(todayIso());
@@ -134,7 +140,11 @@ export function BookingWidget({ locale, dict, doctorId, isAuthenticatedPatient, 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       <div className="mt-4">
-        {isAuthenticatedPatient ? (
+        {status === 'loading' ? (
+          // Same height as the resolved button, so confirming a slot never moves under the
+          // cursor as the session settles.
+          <div aria-hidden className="h-9 w-40 rounded-md bg-neutral-100" />
+        ) : isAuthenticatedPatient ? (
           <button
             type="button"
             disabled={!selectedSlot || submitting}

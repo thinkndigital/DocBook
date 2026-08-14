@@ -17,7 +17,7 @@ no phase ships stubs or fake data paths (§47).
 | 10 | AI layer (doctor discovery, patient assistant, clinic assistant — Claude-backed, with medical disclaimers) | **Delivered** |
 | 11 | Analytics (KPIs, dashboards, OpenAPI docs) | **Delivered** |
 | 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | **Delivered** |
-| 13 | Performance + SEO (structured data, sitemaps, Core Web Vitals pass) | Not started |
+| 13 | Performance + SEO (structured data, sitemaps, Core Web Vitals pass) | Delivered |
 | 14 | Production deployment (CI/CD, backups, monitoring, chosen cloud target) | Not started |
 
 ## Why phased instead of all at once
@@ -407,5 +407,19 @@ Remaining hardening work, recorded rather than implied:
 
 ## Immediate next step
 
-Phase 13 (performance + SEO) — structured data, sitemaps, and a Core Web Vitals pass over
-the public marketplace.
+Phase 13 (performance + SEO) — **delivered**. robots.txt with the private surfaces
+excluded, a database-backed sitemap sharing the marketplace's own visibility filter,
+canonical + hreflang across ar/en, schema.org `Physician`/`WebSite`/`BreadcrumbList`, and
+`noindex` on every authenticated route.
+
+The Core Web Vitals work was one change: the `[locale]` layout called `getServerSession`
+to choose between two sets of nav links, which opted every page beneath it — home, search,
+and every doctor profile — into dynamic rendering. Moving that read into a client component
+made the home pages statically prerendered and doctor profiles incrementally cached
+(`revalidate = 600`). Availability deliberately stays live, fetched by the booking widget,
+so no slot is ever offered from a cached render.
+
+Still open, and deliberately not claimed: no Lighthouse/field-data measurement has been
+run against the deployed site — the changes above are structural (fewer server round trips,
+cacheable HTML, reserved space for late-resolving nav to avoid layout shift), verified
+through the build output and prerender manifest rather than a score.

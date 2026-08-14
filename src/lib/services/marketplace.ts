@@ -94,6 +94,25 @@ export async function getPublicDoctor(id: string) {
   return db.doctor.findFirst({ where: { id, ...PUBLIC_DOCTOR_WHERE_BASE }, select: PUBLIC_DOCTOR_SELECT });
 }
 
+/**
+ * Everything the sitemap may list.
+ *
+ * Shares `PUBLIC_DOCTOR_WHERE_BASE` with the profile page's own query rather than
+ * re-stating the conditions, so the two cannot drift: a sitemap that lists a doctor whose
+ * profile 404s (unverified, soft-deleted, or belonging to a suspended clinic) trains a
+ * crawler to distrust the whole file.
+ *
+ * `select` is deliberately narrow — a sitemap needs an id and a timestamp, and nothing
+ * here should be one careless `include` away from publishing a column.
+ */
+export async function listIndexableDoctors() {
+  return db.doctor.findMany({
+    where: PUBLIC_DOCTOR_WHERE_BASE,
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+}
+
 export async function listPublicSpecialties() {
   return db.specialty.findMany({ orderBy: { name: 'asc' } });
 }

@@ -3,6 +3,13 @@ import { getServerSession } from 'next-auth';
 import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
 
+import type { Metadata } from 'next';
+
+/**
+ * Staff portal: never indexed. See src/app/robots.ts for why both layers exist.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: false, nocache: true } };
+
 const NAV = [
   { href: '/rep', label: 'لوحة الأداء' },
   { href: '/rep/book', label: 'حجز موعد' },

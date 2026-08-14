@@ -3,6 +3,21 @@ export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = 'ar';
 
 export interface Dictionary {
+  /** Copy that appears in <title>, meta descriptions and share cards — never on the page. */
+  seo: {
+    siteName: string;
+    siteDescription: string;
+    homeTitle: string;
+    doctorsTitle: string;
+    doctorsDescription: string;
+    symptomCheckTitle: string;
+    symptomCheckDescription: string;
+    /** {name} and {specialty} are substituted; kept as tokens so word order stays translatable. */
+    doctorTitleTemplate: string;
+    doctorDescriptionTemplate: string;
+    breadcrumbHome: string;
+    breadcrumbDoctors: string;
+  };
   common: {
     search: string;
     bookNow: string;
@@ -96,6 +111,19 @@ export interface Dictionary {
 }
 
 const ar: Dictionary = {
+  seo: {
+    siteName: 'DocBook',
+    siteDescription: 'احجز موعدك مع أطباء وعيادات ومستشفيات موثّقة في الأردن.',
+    homeTitle: 'حجز مواعيد الأطباء والعيادات',
+    doctorsTitle: 'ابحث عن طبيب',
+    doctorsDescription: 'ابحث عن أطباء موثّقين حسب التخصص والمدينة، واطّلع على أسعار الكشف واحجز موعدك مباشرة.',
+    symptomCheckTitle: 'دليل الأعراض',
+    symptomCheckDescription: 'صف أعراضك لمعرفة التخصص الأنسب. ليس تشخيصاً طبياً ولا بديلاً عن استشارة طبيب.',
+    doctorTitleTemplate: '{name} — {specialty}',
+    doctorDescriptionTemplate: 'احجز موعداً مع {name}، {specialty}. اطّلع على المواعيد المتاحة وسعر الكشف واحجز مباشرة.',
+    breadcrumbHome: 'الرئيسية',
+    breadcrumbDoctors: 'الأطباء',
+  },
   common: { search: 'بحث', bookNow: 'احجز الآن', cancel: 'إلغاء', save: 'حفظ', loading: '...جارٍ التحميل', back: 'رجوع' },
   nav: { doctors: 'الأطباء', login: 'تسجيل الدخول', register: 'إنشاء حساب', myAppointments: 'مواعيدي', logout: 'خروج', home: 'الرئيسية' },
   home: {
@@ -186,6 +214,19 @@ const ar: Dictionary = {
 };
 
 const en: Dictionary = {
+  seo: {
+    siteName: 'DocBook',
+    siteDescription: 'Book appointments with verified doctors, clinics and hospitals in Jordan.',
+    homeTitle: 'Book doctors and clinics',
+    doctorsTitle: 'Find a doctor',
+    doctorsDescription: 'Search verified doctors by specialty and city, see consultation fees, and book directly.',
+    symptomCheckTitle: 'Symptom guide',
+    symptomCheckDescription: 'Describe your symptoms to find the right specialty. Not a diagnosis and not a substitute for seeing a doctor.',
+    doctorTitleTemplate: '{name} — {specialty}',
+    doctorDescriptionTemplate: 'Book an appointment with {name}, {specialty}. See available times and the consultation fee, and book directly.',
+    breadcrumbHome: 'Home',
+    breadcrumbDoctors: 'Doctors',
+  },
   common: { search: 'Search', bookNow: 'Book now', cancel: 'Cancel', save: 'Save', loading: 'Loading...', back: 'Back' },
   nav: { doctors: 'Doctors', login: 'Log in', register: 'Sign up', myAppointments: 'My appointments', logout: 'Log out', home: 'Home' },
   home: {

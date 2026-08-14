@@ -9,13 +9,13 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–12 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–13 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
 representative portal, payments/subscriptions/commissions, medical records &
 prescriptions, notifications/calendar, and the AI layer (symptom triage, patient assistant,
-clinic briefing, no-show risk), and role-scoped analytics with a generated OpenAPI document.
-**Not built yet**: SEO/performance (13), deployment (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
+clinic briefing, no-show risk), role-scoped analytics with a generated OpenAPI document, and the SEO/performance layer.
+**Not built yet**: deployment hardening (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
 describes its scope.
 
 ## Commands
@@ -143,6 +143,24 @@ versioned) so no route or page can render AI output without one. No-show risk
 returns its factors and sends nothing off-platform. Never widen
 `buildPatientContext`'s explicit `select` to an `include`: that is the single gate keeping
 `Appointment.notes` and future columns out of a third-party prompt.
+
+**Nothing under `[locale]` may read the session on the server.** `src/app/[locale]/
+layout.tsx` deliberately does not call `getServerSession`: a layout that reads the session
+opts *every page beneath it* into dynamic rendering, which is what previously made the whole
+public marketplace uncacheable. Session-dependent UI there is a client component
+(`src/components/marketplace/user-nav.tsx`, the booking widget's sign-in branch) reading
+`useSession`, with a fixed-size placeholder while it resolves so the late answer costs no
+layout shift. Doctor profiles are ISR (`revalidate = 600`) and need `generateStaticParams`
+returning `[]` to register for it — `revalidate` alone does not. Availability is never
+served from that cache; the widget fetches it live.
+
+**SEO output is a claim, not decoration.** `src/lib/seo/json-ld.ts` omits any property it
+cannot substantiate from a real row — `aggregateRating` appears only when `ratingCount > 0`,
+and `medicalSpecialty` stays free text rather than being guessed onto schema.org's
+enumeration. `src/app/sitemap.ts` reuses `PUBLIC_DOCTOR_WHERE_BASE` through
+`listIndexableDoctors()` so it can never list a profile that 404s. Canonical/hreflang and
+robots.txt are baked at **build** time, so `NEXT_PUBLIC_SITE_URL` must be available to the
+build (see `apphosting.yaml`) or production ships canonicals pointing at localhost.
 
 **Public marketplace queries use `select`, never `include`.** `PUBLIC_DOCTOR_SELECT` in
 `src/lib/services/marketplace.ts` is an allowlist because `include` publishes every current
