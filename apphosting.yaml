@@ -1,0 +1,123 @@
+# Firebase App Hosting configuration.
+#
+# Why this file exists: without it, App Hosting starts the container with no environment
+# variables at all. The build succeeds — it needs nothing — and then `src/instrumentation.ts`
+# refuses to boot, because starting a healthcare app with no DATABASE_URL and no
+# FIELD_ENCRYPTION_KEY would mean serving errors on every request and, worse, being one code
+# path away from writing clinical data unencrypted. The container exits, the health check
+# fails, and the rollout is marked failed with a build log that looks clean.
+#
+# That fail-fast is working as intended (see DEPLOYMENT.md "Required configuration"); the
+# missing piece was always this file.
+#
+# ---------------------------------------------------------------------------------------
+# BEFORE THIS WILL DEPLOY: create the secrets. App Hosting reads them from Google Secret
+# Manager, and `firebase apphosting:secrets:set` also grants the backend access to them.
+#
+#   firebase apphosting:secrets:set DATABASE_URL          --project studio-4511819966-bc14f
+#   firebase apphosting:secrets:set NEXTAUTH_SECRET       --project studio-4511819966-bc14f
+#   firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY  --project studio-4511819966-bc14f
+#
+# Generate the two key values with:  openssl rand -base64 32
+#
+# FIELD_ENCRYPTION_KEY must be treated as permanent. It decrypts every stored diagnosis,
+# note, prescription, and TOTP secret. Rotating it without re-encrypting existing rows makes
+# that data unreadable — `decryptField` will return its "unreadable" marker rather than
+# throwing, so the failure is survivable, but the content is gone. Back it up somewhere
+# separate from the database.
+# ---------------------------------------------------------------------------------------
+
+runConfig:
+  # Small, and scale-to-zero: this is not yet carrying production traffic. Raise
+  # minInstances to 1 before launch — a cold start on a booking page is a lost booking.
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+
+env:
+  # ---- Secrets (Google Secret Manager) ----
+  # RUNTIME only. The build genuinely does not need them — verified by building this repo
+  # from a clean checkout with no environment at all — and a secret that never enters the
+  # build step cannot leak through a build log or a cached layer.
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+    availability:
+      - RUNTIME
+
+  - variable: NEXTAUTH_SECRET
+    secret: NEXTAUTH_SECRET
+    availability:
+      - RUNTIME
+
+  - variable: FIELD_ENCRYPTION_KEY
+    secret: FIELD_ENCRYPTION_KEY
+    availability:
+      - RUNTIME
+
+  # ---- Plain configuration ----
+  # Must match the backend's public URL exactly, including scheme and no trailing slash;
+  # NextAuth builds its callback URLs from this, and a mismatch produces a login loop that
+  # looks like "the password is wrong".
+  - variable: NEXTAUTH_URL
+    value: https://docbook--studio-4511819966-bc14f.us-central1.hosted.app
+    availability:
+      - RUNTIME
+
+  # The rule-based assistant is a real production choice, not a stub: keyword triage over
+  # the tenant's own Specialty rows, no key, and no symptom text leaving the platform. Set
+  # AI_PROVIDER=claude and add an ANTHROPIC_API_KEY secret to switch.
+  - variable: AI_PROVIDER
+    value: rule-based
+    availability:
+      - RUNTIME
+
+  # Dev adapters log instead of delivering. Booking, queue, and records are unaffected;
+  # notifications degrade rather than failing the action that triggered them.
+  - variable: EMAIL_PROVIDER
+    value: dev
+    availability:
+      - RUNTIME
+  - variable: SMS_PROVIDER
+    value: dev
+    availability:
+      - RUNTIME
+  - variable: WHATSAPP_PROVIDER
+    value: dev
+    availability:
+      - RUNTIME
+  - variable: PUSH_PROVIDER
+    value: dev
+    availability:
+      - RUNTIME
+
+  # `getPaymentProvider()` refuses the dev adapter under NODE_ENV=production by design, so
+  # payment collection will return an error until a real gateway is configured. Everything
+  # else works. This is a startup *warning*, not a boot failure — a clinic should not lose
+  # its appointment book over an unconfigured gateway.
+  - variable: PAYMENT_PROVIDER
+    value: dev
+    availability:
+      - RUNTIME
+
+  # Local disk on App Hosting is ephemeral: uploaded documents vanish on every rollout and
+  # are not shared between instances. Switch to STORAGE_PROVIDER=s3 (or a GCS adapter)
+  # before any real patient document is uploaded. See DEPLOYMENT.md.
+  - variable: STORAGE_PROVIDER
+    value: local
+    availability:
+      - RUNTIME
+  - variable: STORAGE_LOCAL_PATH
+    value: /tmp/.storage
+    availability:
+      - RUNTIME
+
+  - variable: DEFAULT_COUNTRY
+    value: JO
+    availability:
+      - RUNTIME
+  - variable: DEFAULT_LOCALE
+    value: ar
+    availability:
+      - RUNTIME

@@ -59,10 +59,57 @@ build, `node server.js` in the runner stage). `docker-compose.yml` runs `app` + 
 together for local parity testing. No production secrets are baked into the image —
 everything comes from environment variables at runtime.
 
+## Firebase App Hosting (the configured target)
+
+`apphosting.yaml` drives the backend. Without it App Hosting starts the container with no
+environment at all: the **build succeeds** (it needs nothing), then `src/instrumentation.ts`
+refuses to boot because a healthcare app with no `DATABASE_URL` and no
+`FIELD_ENCRYPTION_KEY` would serve errors on every request and sit one code path away from
+writing clinical data unencrypted. The container exits, health checks fail, and the rollout
+is marked failed with a build log that looks perfectly clean. That is the shape of this
+failure — a *deploy* failure, not a build failure.
+
+### One-time setup
+
+```bash
+# Secrets live in Google Secret Manager; this command also grants the backend access.
+firebase apphosting:secrets:set DATABASE_URL         --project studio-4511819966-bc14f
+firebase apphosting:secrets:set NEXTAUTH_SECRET      --project studio-4511819966-bc14f
+firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY --project studio-4511819966-bc14f
+```
+
+Generate the two key values with `openssl rand -base64 32`. Set `NEXTAUTH_URL` in
+`apphosting.yaml` to the backend's exact public URL — NextAuth builds callback URLs from it,
+and a mismatch produces a login loop that presents as "the password is wrong".
+
+**`FIELD_ENCRYPTION_KEY` is effectively permanent.** It decrypts every stored diagnosis,
+note, prescription, and TOTP secret. Rotating it without re-encrypting existing rows makes
+that content unreadable — `decryptField` returns its marker rather than throwing, so the app
+survives, but the data is gone. Back it up separately from the database.
+
+### Three things App Hosting does not give you
+
+These do not stop a rollout going green, which is exactly why they are worth stating.
+
+1. **Postgres.** Firebase provides Firestore; this app is Prisma on Postgres. `DATABASE_URL`
+   must point at a managed instance you provision — Cloud SQL (App Hosting reaches it over
+   VPC egress or a public IP with SSL), or Neon/Supabase over the public internet, which is
+   the shorter path. Until then the app boots and every data-backed page fails.
+2. **A migration step.** App Hosting builds and serves; it never runs
+   `prisma migrate deploy`. An un-migrated database produces exactly the "Internal Server
+   Error" class documented above. Run migrations from CI or by hand against the production
+   URL as part of each release, before the rollout is promoted.
+3. **Durable file storage.** `STORAGE_PROVIDER=local` writes to container-local disk, which
+   is wiped on every rollout and not shared between instances. Move to an S3-compatible or
+   GCS adapter before any real patient document is uploaded.
+
 ## Target cloud platform — open decision
 
-Not selected yet. Reasonable candidates, in order of fit for a Postgres + Next.js SaaS at
-this stage:
+**Update:** Firebase App Hosting is now wired up (see above). The note below is kept because
+the database question it raises is still open — App Hosting runs the app, not the Postgres
+behind it.
+
+Reasonable candidates, in order of fit for a Postgres + Next.js SaaS at this stage:
 
 1. **Fly.io / Render** — simplest path, managed Postgres, fast to set up, good enough
    through Series-A scale.
