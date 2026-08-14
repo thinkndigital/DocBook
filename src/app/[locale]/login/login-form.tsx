@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { postLoginDestination } from '@/lib/auth/post-login-destination';
 
 export function MarketplaceLoginForm({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const router = useRouter();
@@ -33,7 +34,11 @@ export function MarketplaceLoginForm({ locale, dict }: { locale: Locale; dict: D
       return;
     }
 
-    router.push(searchParams.get('callbackUrl') ?? `/${locale}/patient`);
+    // Staff sign in through this form too — the marketplace header is the only login link
+    // most people ever see. Sending every role to the patient dashboard left a clinic admin
+    // authenticated in the wrong portal with no way across.
+    const session = await getSession();
+    router.push(searchParams.get('callbackUrl') ?? postLoginDestination(session?.user?.role, locale));
     router.refresh();
   }
 

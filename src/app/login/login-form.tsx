@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { postLoginDestination } from '@/lib/auth/post-login-destination';
 
 export function LoginForm() {
   const router = useRouter();
@@ -26,14 +27,19 @@ export function LoginForm() {
       redirect: false,
     });
 
-    setSubmitting(false);
-
     if (result?.error) {
+      setSubmitting(false);
       setError('بيانات الدخول غير صحيحة، أو الحساب موقوف.');
       return;
     }
 
-    router.push(searchParams.get('callbackUrl') ?? '/admin');
+    // getSession(), not useSession(): the hook's value is from before this sign-in, so
+    // routing on it sends the user to whichever portal they were (not) in a moment ago.
+    // An explicit callbackUrl still wins — that is what returns a patient to the doctor
+    // profile they were booking when they were asked to sign in.
+    const session = await getSession();
+    setSubmitting(false);
+    router.push(searchParams.get('callbackUrl') ?? postLoginDestination(session?.user?.role));
     router.refresh();
   }
 
