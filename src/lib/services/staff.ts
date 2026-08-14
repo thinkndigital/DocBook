@@ -41,6 +41,8 @@ export async function createStaff(input: CreateStaffInput, actor: SessionUser & 
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
+        // Created on the shared assigned password; blocked from everything until changed.
+        mustChangePassword: true,
       },
     });
 

@@ -99,6 +99,7 @@ describe('clinical access control', () => {
         role,
         tenantId: world.tenantId,
         locale: 'ar',
+        mustChangePassword: false,
       };
 
       await expect(resolveClinicalActor(session)).rejects.toBeInstanceOf(ClinicalAccessDeniedError);
@@ -128,6 +129,7 @@ describe('clinical access control', () => {
       role: 'DOCTOR',
       tenantId: world.tenantId,
       locale: 'ar',
+      mustChangePassword: false,
     };
     const actor = await resolveClinicalActor(doctorSession);
 

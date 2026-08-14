@@ -52,6 +52,8 @@ export async function createTenant(input: CreateTenantInput, actor: SessionUser)
         name: input.adminName,
         nameAr: input.adminNameAr,
         status: 'ACTIVE',
+        // Created on the shared assigned password; blocked from everything until changed.
+        mustChangePassword: true,
       },
     });
 

@@ -15,6 +15,8 @@ export interface SessionUser {
   role: UserRole;
   tenantId: string | null;
   locale: string;
+  /** True while the account is still on the admin-assigned password. */
+  mustChangePassword: boolean;
 }
 
 declare module 'next-auth' {
@@ -28,6 +30,7 @@ declare module 'next-auth/jwt' {
     tenantId: string | null;
     locale: string;
     uid: string;
+    mustChangePassword: boolean;
   }
 }
 
@@ -162,6 +165,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           tenantId: user.tenantId,
           locale: user.locale,
+          mustChangePassword: user.mustChangePassword,
         } as NextAuthUser;
       },
     }),
@@ -174,6 +178,7 @@ export const authOptions: NextAuthOptions = {
         token.role = u.role;
         token.tenantId = u.tenantId;
         token.locale = u.locale;
+        token.mustChangePassword = u.mustChangePassword;
       }
       return token;
     },
@@ -185,6 +190,7 @@ export const authOptions: NextAuthOptions = {
         role: token.role,
         tenantId: token.tenantId,
         locale: token.locale,
+        mustChangePassword: token.mustChangePassword,
       };
       return session;
     },

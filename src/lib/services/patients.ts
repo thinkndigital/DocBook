@@ -28,7 +28,14 @@ export async function findPatientByEmail(email: string) {
 
 async function createPatientRow(
   input: { email: string; name: string; phone?: string; gender?: 'MALE' | 'FEMALE'; dateOfBirth?: string },
-  passwordHash: string
+  passwordHash: string,
+  /**
+   * True when the caller assigned DEFAULT_ASSIGNED_PASSWORD rather than the patient
+   * choosing one — i.e. staff or a representative registering someone at the desk. That
+   * account must not stay reachable with the published default, but a patient who signed
+   * up themselves has already chosen a secret and must not be nagged for another.
+   */
+  mustChangePassword = false
 ) {
   const email = normalizeEmail(input.email);
   const existing = await db.user.findUnique({ where: { email } });
@@ -43,6 +50,7 @@ async function createPatientRow(
         role: 'PATIENT',
         name: input.name,
         status: 'ACTIVE',
+        mustChangePassword,
       },
     });
 
@@ -65,7 +73,7 @@ async function createPatientRow(
  */
 export async function registerPatient(input: RegisterPatientInput, actor: SessionUser, auditTenantId?: string) {
   const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
-  const patient = await createPatientRow(input, passwordHash);
+  const patient = await createPatientRow(input, passwordHash, true);
 
   await recordAudit({
     actorUserId: actor.id,

@@ -40,6 +40,8 @@ export async function createRepresentative(
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
+        // Created on the shared assigned password; blocked from everything until changed.
+        mustChangePassword: true,
       },
     });
     return tx.representative.create({

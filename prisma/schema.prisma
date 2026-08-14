@@ -280,33 +280,39 @@ model Branch {
 // ---------- Users & roles ----------
 
 model User {
-  id                String     @id @default(uuid())
-  tenantId          String? // null for PATIENT and SUPER_ADMIN
-  email             String     @unique
-  phone             String?
-  passwordHash      String
-  role              UserRole
-  status            UserStatus @default(ACTIVE)
-  name              String
-  nameAr            String?
-  locale            String     @default("ar")
-  twoFactorEnabled  Boolean    @default(false)
+  id                   String     @id @default(uuid())
+  tenantId             String? // null for PATIENT and SUPER_ADMIN
+  email                String     @unique
+  phone                String?
+  passwordHash         String
+  role                 UserRole
+  status               UserStatus @default(ACTIVE)
+  name                 String
+  nameAr               String?
+  locale               String     @default("ar")
+  twoFactorEnabled     Boolean    @default(false)
   /// Base32 TOTP secret. Encrypted at rest with the same field encryption as clinical data —
   /// a leaked database must not hand over the second factor along with the first.
-  twoFactorSecret   String?
+  twoFactorSecret      String?
   /// Bcrypt hashes of single-use recovery codes. Hashed, never stored in the clear: they
   /// are password-equivalent, and their whole purpose is to work when the authenticator is
   /// gone — which is exactly when a stolen list would be most useful to an attacker.
-  twoFactorBackupCodes String[]  @default([])
+  twoFactorBackupCodes String[]   @default([])
   twoFactorEnrolledAt  DateTime?
+  /// Set when an account is created *for* someone by an admin, since those start with the
+  /// shared assigned password (DEFAULT_ASSIGNED_PASSWORD, which is committed to this repo).
+  /// Until it is cleared the session can reach nothing but the change-password screen — a
+  /// doctor account still on the published default is a way into their patients' records.
+  /// Self-registered patients choose their own password and are never flagged.
+  mustChangePassword   Boolean    @default(false)
   // Per-channel opt-out, e.g. { "SMS": false, "WHATSAPP": false }. Absent/true = enabled.
   // Kept as JSON rather than a table: it's a small per-user preference blob that is only
   // ever read whole, never queried across users.
-  notificationPrefs Json?
-  lastLoginAt       DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  deletedAt         DateTime?
+  notificationPrefs    Json?
+  lastLoginAt          DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  deletedAt            DateTime?
 
   tenant         Tenant?         @relation(fields: [tenantId], references: [id])
   patient        Patient?
@@ -928,33 +934,33 @@ model VideoSession {
 /// Phase 8 exists to prevent. What is kept is metadata: how many characters, which
 /// specialties were suggested (slugs — already public catalogue data), and how it went.
 model AiInteraction {
-  id       String            @id @default(uuid())
-  kind     AiInteractionKind
+  id                String            @id @default(uuid())
+  kind              AiInteractionKind
   /// Null for anonymous public triage; set for authenticated calls.
-  userId   String?
+  userId            String?
   /// Null for patient/public calls — matches the AuditLog/Notification optional-tenant pattern.
-  tenantId String?
+  tenantId          String?
   /// Rate-limit subject: user id when authenticated, hashed client IP when not. Hashed so
   /// the ledger never becomes a log of who searched which symptoms from which address.
-  actorKey String
+  actorKey          String
   /// Adapter that served it: "rule-based" | "claude" | ... Lets a cost or quality question
   /// be scoped to the adapter that was actually live at the time.
-  provider String
+  provider          String
   /// Length of the user's input. Enough for cost/abuse analysis, keeps none of the text.
-  inputChars Int     @default(0)
+  inputChars        Int               @default(0)
   /// Specialty slugs returned, for triage. Public catalogue data, not clinical content.
-  suggestedSlugs String[]
+  suggestedSlugs    String[]
   /// True when the deterministic red-flag check fired — the number that matters when
   /// asking "is the emergency path actually reaching people".
-  redFlagged     Boolean @default(false)
+  redFlagged        Boolean           @default(false)
   /// True when a likely prompt-injection attempt was detected (logged, not blocked).
-  injectionFlagged Boolean @default(false)
+  injectionFlagged  Boolean           @default(false)
   /// Disclaimer wording the user was shown with this response.
   disclaimerVersion String
-  latencyMs         Int      @default(0)
+  latencyMs         Int               @default(0)
   /// False when the provider failed and a deterministic fallback served the response.
-  succeeded         Boolean  @default(true)
-  createdAt         DateTime @default(now())
+  succeeded         Boolean           @default(true)
+  createdAt         DateTime          @default(now())
 
   user   User?   @relation(fields: [userId], references: [id])
   tenant Tenant? @relation(fields: [tenantId], references: [id])

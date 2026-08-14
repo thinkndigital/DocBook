@@ -63,6 +63,14 @@ export const ROUTES: Record<string, RouteMeta> = {
   },
 
   // ---- Public marketplace ----
+  'POST /api/v1/account/password': {
+    summary:
+      'Change the signed-in account\'s own password. Always requires the current password, and clears the mustChangePassword flag.',
+    auth: 'session',
+    body: security.changePasswordSchema,
+    tag: 'Account',
+  },
+
   'GET /api/health': {
     summary:
       'Liveness/readiness probe. 200 when the database is reachable, 503 when it is not. Unauthenticated and deliberately uninformative.',

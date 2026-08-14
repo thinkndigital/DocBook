@@ -222,3 +222,38 @@ route re-checks session and per-patient permission rather than trusting the sign
   exposed in application code).
 - Secrets are never committed — see `.env.example`; production secrets come from the
   hosting platform's secret manager (documented per-target in DEPLOYMENT.md).
+
+## Admin-assigned passwords must be changed before use
+
+Accounts created *for* someone — a doctor added by their clinic, a receptionist, a
+representative, a clinic admin created by the platform, a patient registered at the desk —
+start on `DEFAULT_ASSIGNED_PASSWORD`, which is a constant committed to this repository.
+That is a reasonable way to hand out an account and an unacceptable way to leave one: a
+doctor account on a published password is a way into their patients' records.
+
+`User.mustChangePassword` is set on every one of those paths. `selfRegisterPatient` is
+deliberately excluded — that password was chosen by its owner.
+
+Enforcement is in `src/middleware.ts`, not per page. The flag rides in the JWT, so the
+check costs no database read, and being central means a new page cannot be added without
+it. A flagged session reaches only `/account/password`, its API route, and `/api/auth` —
+the last so that signing out still works for someone who will not or cannot change it.
+Non-page requests get a `403 PASSWORD_CHANGE_REQUIRED` instead of a redirect, because a
+`fetch` that follows a redirect to an HTML page fails with a parse error rather than a
+usable message.
+
+`changeOwnPassword` requires the current password **even when the flag is set**. Skipping
+it for a first login is tempting — the user just authenticated — but the premise of the
+flag is that the current password is public, so skipping the check would let anyone who
+reached a session (a shared device, a reception desk left open) take the account over
+without knowing anything. It also rejects `DEFAULT_ASSIGNED_PASSWORD` as a *new* password:
+at 13 characters it clears the 12-character minimum, so the length rule alone would let it
+through.
+
+The route has no `userId` parameter. It only ever acts on the session's own account; a
+route that could set someone else's password is an account-takeover primitive wearing an
+admin badge.
+
+**Known gap:** there is no password *reset* for a user who has forgotten theirs — no email
+delivery is configured (`EMAIL_PROVIDER=dev`), and a reset flow without a delivery channel
+is a way to lock people out, not in. Until then an admin re-issues the account.

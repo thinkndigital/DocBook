@@ -248,6 +248,17 @@ constraint errors. `reportError` swallows its own failures: observability must n
 handled 500 into an unhandled one. Next still logs the raw message separately — that is a
 known limitation, not an oversight.
 
+**Admin-assigned passwords are blocked until changed.** Every account created *for*
+someone (doctor, staff, representative, clinic admin, desk-registered patient) starts on
+`DEFAULT_ASSIGNED_PASSWORD` — a constant in this repo — and carries
+`User.mustChangePassword`. `src/middleware.ts` confines such a session to
+`/account/password` and its API route; the flag travels in the JWT so the check is free.
+`changeOwnPassword` still demands the current password (the flag exists *because* that
+value is public, so a session alone must not be enough) and refuses the assigned default as
+a new password. `selfRegisterPatient` never sets the flag — that password was the user's own
+choice. There is no password *reset* flow: no email channel is configured, and a reset
+without delivery locks people out rather than in.
+
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass
 medical record *content* into `beforeState`/`afterState` — only that an access/change

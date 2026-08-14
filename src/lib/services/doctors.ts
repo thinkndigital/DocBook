@@ -56,6 +56,8 @@ export async function createDoctor(input: CreateDoctorInput, actor: SessionUser 
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
+        // Created on the shared assigned password; blocked from everything until changed.
+        mustChangePassword: true,
       },
     });
 

@@ -5,6 +5,15 @@ import { getToken } from 'next-auth/jwt';
 const PUBLIC_PATHS = ['/login', '/api/auth', '/_next', '/favicon.ico'];
 
 /**
+ * Reachable while an account is still on the admin-assigned password.
+ *
+ * The change-password screen and the endpoint it posts to, obviously — locking someone out
+ * of the only page that can unlock them is a loop. `/api/auth` is included so sign-out
+ * still works: someone who cannot or will not change the password must be able to leave.
+ */
+const PASSWORD_CHANGE_ALLOWED = ['/account/password', '/api/v1/account/password', '/api/auth'];
+
+/**
  * Warns once per process if the host being served disagrees with NEXTAUTH_URL.
  *
  * This mismatch has no symptom of its own. NextAuth builds callback URLs and scopes the
@@ -61,15 +70,35 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
   // Only guards page routes for now — API route handlers verify the session themselves
   // via getServerSession + authorize() (see rbac.ts), which is the source of truth.
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (!token) {
-      const loginUrl = new URL('/login', req.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(loginUrl);
+  if (!token && (pathname.startsWith('/dashboard') || pathname.startsWith('/admin'))) {
+    const loginUrl = new URL('/login', req.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  /**
+   * An account still on the assigned password reaches nothing but the change screen.
+   *
+   * This is enforced here rather than per-page because the flag protects *every* surface,
+   * and a per-page check is a list that a new page can be added to without noticing. The
+   * flag rides in the JWT, so this costs no database read.
+   *
+   * Non-page requests (RSC payloads, API calls) are refused with 403 rather than redirected
+   * — a fetch following a redirect to an HTML page produces a parse error rather than a
+   * usable message.
+   */
+  if (token?.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.some((p) => pathname.startsWith(p))) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: { code: 'PASSWORD_CHANGE_REQUIRED', message: 'Change your password to continue.' } },
+        { status: 403 }
+      );
     }
+    return NextResponse.redirect(new URL('/account/password', req.url));
   }
 
   return NextResponse.next();

@@ -164,6 +164,7 @@ export async function createWorld(label = 'w'): Promise<TestWorld> {
       role: 'TENANT_ADMIN',
       tenantId: tenant.id,
       locale: 'ar',
+      mustChangePassword: false,
     },
     patientSession: {
       id: patientUser.id,
@@ -172,6 +173,7 @@ export async function createWorld(label = 'w'): Promise<TestWorld> {
       role: 'PATIENT',
       tenantId: null,
       locale: 'ar',
+      mustChangePassword: false,
     },
   };
 }
