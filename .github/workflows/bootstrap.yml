@@ -63,6 +63,16 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      # Always runs, before anything reads a user by email. Registration used to store the
+      # address as typed while login now normalises it, so a row written earlier with
+      # capitals would fail to match and present as a wrong password. Idempotent, and it
+      # aborts rather than merging two accounts that differ only by case.
+      - name: Normalise stored emails
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run normalize-emails
+
       - name: Apply reference data
         if: ${{ inputs.reference_data }}
         env:

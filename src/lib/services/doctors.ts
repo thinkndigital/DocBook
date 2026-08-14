@@ -6,6 +6,7 @@ import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { createDoctorSchema, updateDoctorSchema } from '@/lib/validation/tenant';
 import type { verifyDoctorSchema } from '@/lib/validation/doctor';
+import { normalizeEmail } from '@/lib/validation/common';
 
 type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
 type UpdateDoctorInput = z.infer<typeof updateDoctorSchema>;
@@ -31,8 +32,9 @@ export async function getDoctor(id: string) {
 }
 
 export async function createDoctor(input: CreateDoctorInput, actor: SessionUser & { tenantId: string }) {
-  const existingUser = await db.user.findUnique({ where: { email: input.email } });
-  if (existingUser) throw new DoctorConflictError(`A user with email ${input.email} already exists.`);
+  const email = normalizeEmail(input.email);
+  const existingUser = await db.user.findUnique({ where: { email } });
+  if (existingUser) throw new DoctorConflictError(`A user with email ${email} already exists.`);
 
   // Branches are tenant-scoped, so this findMany (running inside the caller's tenant
   // context) can only ever return branches that belong to this tenant — if a caller
@@ -48,7 +50,7 @@ export async function createDoctor(input: CreateDoctorInput, actor: SessionUser 
     const user = await tx.user.create({
       data: {
         tenantId: actor.tenantId,
-        email: input.email,
+        email,
         passwordHash,
         role: 'DOCTOR',
         name: input.name,

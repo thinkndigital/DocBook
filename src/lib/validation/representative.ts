@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { emailSchema } from '@/lib/validation/common';
 
 export const createRepresentativeSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   name: z.string().min(2).max(200),
   nameAr: z.string().min(2).max(200).optional(),
   monthlyTargetAmount: z.number().int().min(0).optional(), // minor units

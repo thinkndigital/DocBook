@@ -30,7 +30,13 @@ async function main() {
     throw new Error('Set ADMIN_EMAIL to the address of an account that already exists.');
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  // Case-insensitive on purpose. This runs against databases written before emails were
+  // normalised, where the stored address can still carry capitals; an exact lookup on the
+  // lowercased input misses the very account it was pointed at and reports "no such user"
+  // about a user that is plainly there.
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+  });
   if (!user) {
     throw new Error(
       `No account found for ${email}. Register through the site first, then re-run this.`

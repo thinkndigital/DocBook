@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { emailSchema } from '@/lib/validation/common';
 
 const newPatientSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   name: z.string().min(2).max(200),
   phone: z.string().max(30).optional(),
   gender: z.enum(['MALE', 'FEMALE']).optional(),

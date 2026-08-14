@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { createStaffSchema } from '@/lib/validation/tenant';
+import { normalizeEmail } from '@/lib/validation/common';
 
 type CreateStaffInput = z.infer<typeof createStaffSchema>;
 
@@ -19,8 +20,9 @@ export async function listStaff() {
 }
 
 export async function createStaff(input: CreateStaffInput, actor: SessionUser & { tenantId: string }) {
-  const existingUser = await db.user.findUnique({ where: { email: input.email } });
-  if (existingUser) throw new StaffConflictError(`A user with email ${input.email} already exists.`);
+  const email = normalizeEmail(input.email);
+  const existingUser = await db.user.findUnique({ where: { email } });
+  if (existingUser) throw new StaffConflictError(`A user with email ${email} already exists.`);
 
   if (input.branchId) {
     const branch = await db.branch.findFirst({ where: { id: input.branchId } });
@@ -33,7 +35,7 @@ export async function createStaff(input: CreateStaffInput, actor: SessionUser & 
     const user = await tx.user.create({
       data: {
         tenantId: actor.tenantId,
-        email: input.email,
+        email,
         passwordHash,
         role: 'RECEPTIONIST',
         name: input.name,

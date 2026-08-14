@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailSchema } from '@/lib/validation/common';
 
 const openingHoursSchema = z.record(
   z.array(z.object({ start: z.string().regex(/^\d{2}:\d{2}$/), end: z.string().regex(/^\d{2}:\d{2}$/) }))
@@ -21,7 +22,7 @@ export const updateBranchSchema = createBranchSchema.partial().extend({
 });
 
 export const createDoctorSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   name: z.string().min(2).max(200),
   nameAr: z.string().min(2).max(200).optional(),
   specialtyId: z.string().uuid(),
@@ -47,7 +48,7 @@ export const updateDoctorSchema = z.object({
 });
 
 export const createStaffSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   name: z.string().min(2).max(200),
   nameAr: z.string().min(2).max(200).optional(),
   branchId: z.string().uuid().optional(),

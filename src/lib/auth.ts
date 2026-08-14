@@ -6,6 +6,7 @@ import { recordAudit } from '@/lib/audit';
 import { RATE_LIMITS, checkLimit, clearFailures, recordAttempt, subjectKey } from '@/lib/security/rate-limit';
 import { verifySecondFactor, TwoFactorRateLimitedError } from '@/lib/services/two-factor';
 import type { UserRole } from '@prisma/client';
+import { normalizeEmail } from '@/lib/validation/common';
 
 export interface SessionUser {
   id: string;
@@ -47,11 +48,17 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, req): Promise<NextAuthUser | null> {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Stored lowercase by emailSchema on every write path, so the lookup below must
+        // normalise too — `User.email` is a case-sensitive Postgres unique column, and
+        // matching the raw form input told anyone who typed a capital that their password
+        // was wrong.
+        const email = normalizeEmail(credentials.email);
+
         // Lockout subject is email+IP together, not either alone. Email-only lets anyone
         // lock a known user out of their own account by failing on purpose; IP-only lets a
         // shared clinic connection be exhausted by one careless typist.
         const ip = getIp(req);
-        const limitKey = subjectKey('login', credentials.email.toLowerCase(), ip);
+        const limitKey = subjectKey('login', email, ip);
 
         const verdict = await checkLimit(RATE_LIMITS.login, limitKey);
         if (!verdict.allowed) {
@@ -66,7 +73,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await db.user.findUnique({ where: { email: credentials.email } });
+        const user = await db.user.findUnique({ where: { email } });
 
         // Constant-shape comparison even when the user doesn't exist, to avoid a
         // user-enumeration timing side-channel.

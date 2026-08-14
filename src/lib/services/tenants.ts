@@ -4,6 +4,7 @@ import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
 import bcrypt from 'bcryptjs';
 import type { TenantStatus, TenantType } from '@prisma/client';
 import type { SessionUser } from '@/lib/auth';
+import { normalizeEmail } from '@/lib/validation/common';
 
 export interface CreateTenantInput {
   type: TenantType;
@@ -23,9 +24,10 @@ export class InvalidStatusTransitionError extends Error {}
  * clicking "add tenant" produces a real, working account, not just a database row (§47).
  */
 export async function createTenant(input: CreateTenantInput, actor: SessionUser) {
-  const existingUser = await db.user.findUnique({ where: { email: input.adminEmail } });
+  const email = normalizeEmail(input.adminEmail);
+  const existingUser = await db.user.findUnique({ where: { email } });
   if (existingUser) {
-    throw new TenantConflictError(`A user with email ${input.adminEmail} already exists.`);
+    throw new TenantConflictError(`A user with email ${email} already exists.`);
   }
 
   const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
@@ -44,7 +46,7 @@ export async function createTenant(input: CreateTenantInput, actor: SessionUser)
     const adminUser = await tx.user.create({
       data: {
         tenantId: tenant.id,
-        email: input.adminEmail,
+        email,
         passwordHash,
         role: 'TENANT_ADMIN',
         name: input.adminName,

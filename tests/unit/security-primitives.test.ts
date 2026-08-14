@@ -5,6 +5,7 @@ import { ROLE_PERMISSIONS, hasPermission } from '@/types/rbac';
 import { detectRedFlags, looksLikeInjection, redactForModel, containsDiagnosticLanguage } from '@/lib/ai/safety';
 import { matchSpecialties } from '@/lib/ai/matcher';
 import { resolveRange, denseBuckets, RANGE_PRESETS } from '@/lib/analytics/range';
+import { emailSchema, normalizeEmail } from '@/lib/validation/common';
 
 describe('clinical field encryption', () => {
   it('round-trips and never stores plaintext', () => {
@@ -179,5 +180,21 @@ describe('analytics range resolution', () => {
     for (const preset of RANGE_PRESETS) {
       expect(resolveRange(preset).preset).toBe(preset);
     }
+  });
+});
+
+describe('email normalisation', () => {
+  it('lowercases and trims, so a unique column and a login lookup agree', () => {
+    expect(normalizeEmail('  Abdasalam@Gmail.COM ')).toBe('abdasalam@gmail.com');
+    expect(emailSchema.parse(' User@Example.Com ')).toBe('user@example.com');
+  });
+
+  it('rejects a non-address before normalising it', () => {
+    expect(() => emailSchema.parse('not-an-email')).toThrow();
+  });
+
+  it('collapses case variants to one key — the property the unique constraint relies on', () => {
+    const variants = ['Ali@x.com', 'ali@X.com', 'ALI@X.COM', ' ali@x.com '];
+    expect(new Set(variants.map(normalizeEmail)).size).toBe(1);
   });
 });

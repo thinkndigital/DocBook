@@ -3,6 +3,7 @@ import { recordAudit } from '@/lib/audit';
 import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
 import bcrypt from 'bcryptjs';
 import type { SessionUser } from '@/lib/auth';
+import { normalizeEmail } from '@/lib/validation/common';
 
 export class RepConflictError extends Error {}
 export class RepNotFoundError extends Error {}
@@ -24,15 +25,16 @@ export async function createRepresentative(
   input: { email: string; name: string; nameAr?: string; monthlyTargetAmount?: number },
   actor: SessionUser
 ) {
-  const existing = await db.user.findUnique({ where: { email: input.email } });
-  if (existing) throw new RepConflictError(`A user with email ${input.email} already exists.`);
+  const email = normalizeEmail(input.email);
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) throw new RepConflictError(`A user with email ${email} already exists.`);
 
   const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
 
   const rep = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: input.email,
+        email,
         passwordHash,
         role: 'REPRESENTATIVE',
         name: input.name,
@@ -51,7 +53,7 @@ export async function createRepresentative(
     action: 'REPRESENTATIVE_CREATED',
     entityType: 'Representative',
     entityId: rep.id,
-    afterState: { email: input.email, monthlyTargetAmount: input.monthlyTargetAmount ?? null },
+    afterState: { email, monthlyTargetAmount: input.monthlyTargetAmount ?? null },
   });
 
   return rep;

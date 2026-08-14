@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailSchema } from '@/lib/validation/common';
 
 export const createTenantSchema = z.object({
   type: z.enum([
@@ -15,7 +16,7 @@ export const createTenantSchema = z.object({
   name: z.string().min(2).max(200),
   nameAr: z.string().min(2).max(200),
   countryId: z.string().uuid(),
-  adminEmail: z.string().email(),
+  adminEmail: emailSchema,
   adminName: z.string().min(2).max(200),
   adminNameAr: z.string().min(2).max(200).optional(),
 });

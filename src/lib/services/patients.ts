@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { registerPatientSchema, selfRegisterPatientSchema } from '@/lib/validation/patient';
+import { normalizeEmail } from '@/lib/validation/common';
 
 type RegisterPatientInput = z.infer<typeof registerPatientSchema>;
 type SelfRegisterPatientInput = z.infer<typeof selfRegisterPatientSchema>;
@@ -29,13 +30,14 @@ async function createPatientRow(
   input: { email: string; name: string; phone?: string; gender?: 'MALE' | 'FEMALE'; dateOfBirth?: string },
   passwordHash: string
 ) {
-  const existing = await db.user.findUnique({ where: { email: input.email } });
-  if (existing) throw new PatientConflictError(`A user with email ${input.email} already exists.`);
+  const email = normalizeEmail(input.email);
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) throw new PatientConflictError(`A user with email ${email} already exists.`);
 
   return db.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: input.email,
+        email,
         phone: input.phone,
         passwordHash,
         role: 'PATIENT',
