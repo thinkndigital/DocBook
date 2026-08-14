@@ -38,6 +38,30 @@ export interface Dictionary {
     title: string;
     subtitle: string;
     searchCta: string;
+    searchPlaceholder: string;
+    browseSpecialties: string;
+    browseCities: string;
+    viewAllDoctors: string;
+    howItWorksTitle: string;
+    step1Title: string;
+    step1Body: string;
+    step2Title: string;
+    step2Body: string;
+    step3Title: string;
+    step3Body: string;
+    trustTitle: string;
+    trustVerified: string;
+    trustVerifiedBody: string;
+    trustPricing: string;
+    trustPricingBody: string;
+    trustRecords: string;
+    trustRecordsBody: string;
+    symptomTitle: string;
+    symptomBody: string;
+    symptomCta: string;
+    symptomDisclaimer: string;
+    clinicsTitle: string;
+    clinicsBody: string;
   };
   doctors: {
     title: string;
@@ -127,9 +151,33 @@ const ar: Dictionary = {
   common: { search: 'بحث', bookNow: 'احجز الآن', cancel: 'إلغاء', save: 'حفظ', loading: '...جارٍ التحميل', back: 'رجوع' },
   nav: { doctors: 'الأطباء', login: 'تسجيل الدخول', register: 'إنشاء حساب', myAppointments: 'مواعيدي', logout: 'خروج', home: 'الرئيسية' },
   home: {
-    title: 'ابحث واحجز موعدك مع أفضل الأطباء',
-    subtitle: 'منصة موثوقة لحجز مواعيد الأطباء والعيادات في الأردن',
-    searchCta: 'ابحث عن طبيب',
+    title: 'احجز موعدك مع طبيب موثّق',
+    subtitle: 'ابحث حسب التخصص أو المدينة، واطّلع على سعر الكشف والمواعيد المتاحة، واحجز في أقل من دقيقة.',
+    searchCta: 'ابحث',
+    searchPlaceholder: 'اسم الطبيب أو التخصص',
+    browseSpecialties: 'تصفّح حسب التخصص',
+    browseCities: 'تصفّح حسب المدينة',
+    viewAllDoctors: 'عرض كل الأطباء',
+    howItWorksTitle: 'كيف تحجز',
+    step1Title: 'ابحث',
+    step1Body: 'حدّد التخصص والمدينة، أو اكتب اسم الطبيب مباشرة.',
+    step2Title: 'اختر موعداً',
+    step2Body: 'المواعيد المعروضة متاحة فعلاً في تلك اللحظة — لا انتظار لتأكيد.',
+    step3Title: 'أكّد الحجز',
+    step3Body: 'يصلك تأكيد فوري، وتقدر تلغي أو تعدّل من حسابك.',
+    trustTitle: 'لماذا DocBook',
+    trustVerified: 'أطباء موثّقون',
+    trustVerifiedBody: 'لا يظهر الطبيب في البحث قبل توثيق ترخيصه من فريق المنصّة.',
+    trustPricing: 'سعر معلن مسبقاً',
+    trustPricingBody: 'سعر الكشف ظاهر قبل الحجز، بلا مفاجآت عند العيادة.',
+    trustRecords: 'ملفك الصحي محميّ',
+    trustRecordsBody: 'التشخيصات والوصفات مشفّرة، ولا يصل إليها إلا طبيبك المعالج وأنت.',
+    symptomTitle: 'لست متأكداً من التخصص المناسب؟',
+    symptomBody: 'صِف ما تشعر به بكلماتك، ونقترح عليك التخصص الأقرب وأطباءه.',
+    symptomCta: 'جرّب دليل الأعراض',
+    symptomDisclaimer: 'إرشاد للتخصص فقط — ليس تشخيصاً طبياً ولا بديلاً عن استشارة طبيب. في الحالات الطارئة اتصل بالإسعاف فوراً.',
+    clinicsTitle: 'عيادة أو مستشفى؟',
+    clinicsBody: 'DocBook يدير المواعيد والطابور والفوترة والسجلات الطبية لفريقك. تواصل معنا لإضافة جهتك.',
   },
   doctors: {
     title: 'الأطباء',
@@ -230,9 +278,33 @@ const en: Dictionary = {
   common: { search: 'Search', bookNow: 'Book now', cancel: 'Cancel', save: 'Save', loading: 'Loading...', back: 'Back' },
   nav: { doctors: 'Doctors', login: 'Log in', register: 'Sign up', myAppointments: 'My appointments', logout: 'Log out', home: 'Home' },
   home: {
-    title: 'Find and book your appointment with top doctors',
-    subtitle: 'A trusted platform for booking doctors and clinics in Jordan',
-    searchCta: 'Find a doctor',
+    title: 'Book a verified doctor',
+    subtitle: 'Search by specialty or city, see the consultation fee and real availability, and book in under a minute.',
+    searchCta: 'Search',
+    searchPlaceholder: 'Doctor name or specialty',
+    browseSpecialties: 'Browse by specialty',
+    browseCities: 'Browse by city',
+    viewAllDoctors: 'See all doctors',
+    howItWorksTitle: 'How booking works',
+    step1Title: 'Search',
+    step1Body: 'Pick a specialty and city, or type a doctor’s name.',
+    step2Title: 'Choose a time',
+    step2Body: 'Every slot shown is genuinely free at that moment — no waiting for confirmation.',
+    step3Title: 'Confirm',
+    step3Body: 'You get an immediate confirmation, and can reschedule or cancel from your account.',
+    trustTitle: 'Why DocBook',
+    trustVerified: 'Verified doctors',
+    trustVerifiedBody: 'A doctor does not appear in search until their licence has been verified by the platform.',
+    trustPricing: 'Fees shown upfront',
+    trustPricingBody: 'The consultation fee is visible before you book — nothing new at the desk.',
+    trustRecords: 'Your record stays yours',
+    trustRecordsBody: 'Diagnoses and prescriptions are encrypted, and reachable only by you and your treating doctor.',
+    symptomTitle: 'Not sure which specialty you need?',
+    symptomBody: 'Describe what you are feeling in your own words and we will suggest the closest specialty and its doctors.',
+    symptomCta: 'Try the symptom guide',
+    symptomDisclaimer: 'Specialty guidance only — not a diagnosis and not a substitute for seeing a doctor. In an emergency call the ambulance immediately.',
+    clinicsTitle: 'Run a clinic or hospital?',
+    clinicsBody: 'DocBook handles appointments, the waiting queue, billing and medical records for your team. Get in touch to add your practice.',
   },
   doctors: {
     title: 'Doctors',
