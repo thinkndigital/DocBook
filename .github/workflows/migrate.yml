@@ -61,11 +61,16 @@ jobs:
 
       # Both names are set from the same secret: schema.prisma declares `directUrl`, so the
       # CLI requires DIRECT_DATABASE_URL to exist even when it is the same connection.
+      # `prisma migrate status` exits 1 whenever migrations are pending. That is its way of
+      # reporting drift, not a failure — but a step that exits non-zero aborts the job, so
+      # this workflow could never apply migrations to a fresh database: the status step
+      # killed the run before the deploy step was reached. Reporting is informational here;
+      # the deploy step below is what is allowed to fail.
       - name: Show current state
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma migrate status
+        run: npx prisma migrate status || true
 
       - name: Apply migrations
         if: ${{ !inputs.dry_run }}
