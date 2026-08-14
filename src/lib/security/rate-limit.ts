@@ -51,6 +51,12 @@ export const RATE_LIMITS = {
   register: { bucket: 'register', max: 5, windowSeconds: 60 * 60 },
   /** Password-equivalent: a 6-digit code has 1e6 possibilities, so attempts must be scarce. */
   twoFactor: { bucket: '2fa', max: 8, windowSeconds: 15 * 60, countFailuresOnly: true },
+  /**
+   * Public partner enquiries from one address. Low on purpose: a legitimate clinic submits
+   * once, and the form is an unauthenticated write reachable by anyone, so the only thing
+   * volume here can mean is spam filling the review queue.
+   */
+  partnerApplication: { bucket: 'partner-application', max: 3, windowSeconds: 24 * 60 * 60 },
   /** Blanket ceiling for unauthenticated API traffic from one address. */
   publicApi: { bucket: 'public-api', max: 300, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;

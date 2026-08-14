@@ -62,6 +62,30 @@ export interface Dictionary {
     symptomDisclaimer: string;
     clinicsTitle: string;
     clinicsBody: string;
+    clinicsCta: string;
+  };
+  partner: {
+    title: string;
+    intro: string;
+    orgName: string;
+    type: string;
+    clinic: string;
+    hospital: string;
+    country: string;
+    city: string;
+    cityOptional: string;
+    contactName: string;
+    contactEmail: string;
+    contactPhone: string;
+    doctorCount: string;
+    notes: string;
+    submit: string;
+    submitting: string;
+    successTitle: string;
+    successBody: string;
+    error: string;
+    rateLimited: string;
+    privacyNote: string;
   };
   doctors: {
     title: string;
@@ -177,7 +201,31 @@ const ar: Dictionary = {
     symptomCta: 'جرّب دليل الأعراض',
     symptomDisclaimer: 'إرشاد للتخصص فقط — ليس تشخيصاً طبياً ولا بديلاً عن استشارة طبيب. في الحالات الطارئة اتصل بالإسعاف فوراً.',
     clinicsTitle: 'عيادة أو مستشفى؟',
-    clinicsBody: 'DocBook يدير المواعيد والطابور والفوترة والسجلات الطبية لفريقك. تواصل معنا لإضافة جهتك.',
+    clinicsBody: 'DocBook يدير المواعيد والطابور والفوترة والسجلات الطبية لفريقك.',
+    clinicsCta: 'قدّم طلب انضمام',
+  },
+  partner: {
+    title: 'انضمّ إلى DocBook كجهة صحية',
+    intro: 'املأ البيانات وسيتواصل معك فريقنا. لا يُنشأ أي حساب الآن — الانضمام يتم بعد المراجعة.',
+    orgName: 'اسم الجهة',
+    type: 'النوع',
+    clinic: 'عيادة',
+    hospital: 'مستشفى',
+    country: 'الدولة',
+    city: 'المدينة',
+    cityOptional: 'اختياري',
+    contactName: 'اسم المسؤول',
+    contactEmail: 'البريد الإلكتروني',
+    contactPhone: 'رقم الهاتف',
+    doctorCount: 'عدد الأطباء تقريباً',
+    notes: 'ملاحظات',
+    submit: 'إرسال الطلب',
+    submitting: 'جارٍ الإرسال…',
+    successTitle: 'وصلنا طلبك',
+    successBody: 'سيتواصل معك فريقنا على البريد أو الهاتف الذي أدخلته. لا حاجة لإرسال الطلب مرة أخرى.',
+    error: 'تعذّر إرسال الطلب. راجع الحقول وحاول مرة أخرى.',
+    rateLimited: 'وصلتنا طلبات كثيرة من هذا الاتصال. حاول لاحقاً.',
+    privacyNote: 'نستخدم هذه البيانات للتواصل بخصوص طلبك فقط.',
   },
   doctors: {
     title: 'الأطباء',
@@ -304,7 +352,31 @@ const en: Dictionary = {
     symptomCta: 'Try the symptom guide',
     symptomDisclaimer: 'Specialty guidance only — not a diagnosis and not a substitute for seeing a doctor. In an emergency call the ambulance immediately.',
     clinicsTitle: 'Run a clinic or hospital?',
-    clinicsBody: 'DocBook handles appointments, the waiting queue, billing and medical records for your team. Get in touch to add your practice.',
+    clinicsBody: 'DocBook handles appointments, the waiting queue, billing and medical records for your team.',
+    clinicsCta: 'Apply to join',
+  },
+  partner: {
+    title: 'Join DocBook as a healthcare provider',
+    intro: 'Fill in your details and our team will get in touch. No account is created now — joining happens after review.',
+    orgName: 'Organisation name',
+    type: 'Type',
+    clinic: 'Clinic',
+    hospital: 'Hospital',
+    country: 'Country',
+    city: 'City',
+    cityOptional: 'optional',
+    contactName: 'Contact name',
+    contactEmail: 'Email',
+    contactPhone: 'Phone',
+    doctorCount: 'Approximate number of doctors',
+    notes: 'Notes',
+    submit: 'Send application',
+    submitting: 'Sending…',
+    successTitle: 'We have your application',
+    successBody: 'Our team will contact you on the email or phone you gave. There is no need to send it again.',
+    error: 'Could not send the application. Check the fields and try again.',
+    rateLimited: 'Too many submissions from this connection. Please try later.',
+    privacyNote: 'We use these details only to contact you about this application.',
   },
   doctors: {
     title: 'Doctors',

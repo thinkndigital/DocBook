@@ -16,6 +16,7 @@ const NAV = [
   { href: '/admin/tenants', label: 'الجهات الصحية' },
   { href: '/admin/doctors', label: 'توثيق الأطباء' },
   { href: '/admin/representatives', label: 'المندوبون' },
+  { href: '/admin/partner-applications', label: 'طلبات الانضمام' },
   { href: '/admin/settings/countries', label: 'الدول والمدن' },
   { href: '/admin/settings/plans', label: 'خطط الاشتراك' },
   { href: '/admin/commission-rules', label: 'قواعد العمولات' },

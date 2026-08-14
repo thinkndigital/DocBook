@@ -195,8 +195,9 @@ model Country {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  cities  City[]
-  tenants Tenant[]
+  cities              City[]
+  tenants             Tenant[]
+  partnerApplications PartnerApplication[]
 
   @@map("countries")
 }
@@ -209,8 +210,9 @@ model City {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  country  Country  @relation(fields: [countryId], references: [id])
-  branches Branch[]
+  country             Country              @relation(fields: [countryId], references: [id])
+  branches            Branch[]
+  partnerApplications PartnerApplication[]
 
   @@unique([countryId, name])
   @@map("cities")
@@ -1017,4 +1019,48 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([actorUserId])
   @@map("audit_logs")
+}
+
+/// A clinic or hospital asking to join the platform.
+///
+/// Deliberately **not** a Tenant. Nothing here grants access: it is an inbound enquiry from
+/// an unauthenticated visitor, reviewed by a human, and approval means a platform admin
+/// then creates the tenant through the ordinary `/admin/tenants` flow. Letting a public form
+/// write a Tenant row — even a pending one — would put the tenant table, which every
+/// isolation guarantee is keyed on, behind a box anyone on the internet can type into.
+///
+/// It carries no `tenantId` and is not registered in `src/lib/tenant.ts`: it exists before
+/// any tenant does, so there is no context to scope it by. Only `SUPER_ADMIN` can read it.
+model PartnerApplication {
+  id               String                   @id @default(uuid())
+  organizationName String
+  type             TenantType
+  countryId        String
+  cityId           String?
+  contactName      String
+  contactEmail     String
+  contactPhone     String
+  /// Self-reported, for triage only — never treated as a verified figure.
+  doctorCount      Int?
+  notes            String?
+  status           PartnerApplicationStatus @default(PENDING)
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  /// Internal note from the reviewer. Never shown to the applicant.
+  reviewNotes      String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  country Country @relation(fields: [countryId], references: [id])
+  city    City?   @relation(fields: [cityId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("partner_applications")
+}
+
+enum PartnerApplicationStatus {
+  PENDING
+  CONTACTED
+  APPROVED
+  REJECTED
 }

@@ -165,12 +165,18 @@ export default async function MarketplaceHomePage({ params }: { params: { locale
         </section>
       )}
 
-      {/* No sign-up link: clinics are onboarded by the platform team, and a button
-          promising self-service registration that does not exist is worse than a sentence
-          asking them to make contact. */}
+      {/* The button leads to an application form, not a sign-up: no account is created and
+          nothing is granted until a human reviews it. That distinction is the reason a
+          public form can exist here at all — see src/lib/services/partner-applications.ts. */}
       <section className="rounded-lg border border-neutral-200 bg-white p-6">
         <h2 className="text-lg font-bold text-neutral-900">{dict.home.clinicsTitle}</h2>
         <p className="mt-2 max-w-2xl text-sm text-neutral-600">{dict.home.clinicsBody}</p>
+        <Link
+          href={`/${params.locale}/for-clinics`}
+          className="mt-4 inline-block rounded-md border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+        >
+          {dict.home.clinicsCta}
+        </Link>
       </section>
     </div>
   );

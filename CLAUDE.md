@@ -248,6 +248,14 @@ constraint errors. `reportError` swallows its own failures: observability must n
 handled 500 into an unhandled one. Next still logs the raw message separately — that is a
 known limitation, not an oversight.
 
+**Clinics apply; they do not sign up.** `PartnerApplication` (`src/lib/services/
+partner-applications.ts`, public form at `/[locale]/for-clinics`) is an inbound enquiry
+table, deliberately *not* a pending `Tenant`: the tenant table is what every isolation
+guarantee is keyed on, so nothing an anonymous visitor types may write to it. Marking an
+application `APPROVED` records a human decision and creates nothing — the tenant is then
+created through `/admin/tenants` as before, keeping one authenticated creation path. The
+public route is IP rate-limited (3/day) and returns `{ received: true }` with no id.
+
 **Admin-assigned passwords are blocked until changed.** Every account created *for*
 someone (doctor, staff, representative, clinic admin, desk-registered patient) starts on
 `DEFAULT_ASSIGNED_PASSWORD` — a constant in this repo — and carries

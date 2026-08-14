@@ -5,6 +5,7 @@ import * as appointment from '@/lib/validation/appointment';
 import * as billing from '@/lib/validation/billing';
 import * as clinical from '@/lib/validation/clinical';
 import * as doctor from '@/lib/validation/doctor';
+import * as partner from '@/lib/validation/partner';
 import * as patient from '@/lib/validation/patient';
 import * as representative from '@/lib/validation/representative';
 import * as security from '@/lib/validation/security';
@@ -63,6 +64,27 @@ export const ROUTES: Record<string, RouteMeta> = {
   },
 
   // ---- Public marketplace ----
+  'POST /api/v1/public/partner-applications': {
+    summary:
+      'Public enquiry from a clinic or hospital asking to join. Creates no account and grants nothing; rate limited per IP.',
+    auth: 'public',
+    body: partner.submitPartnerApplicationSchema,
+    tag: 'Marketplace',
+  },
+  'GET /api/v1/admin/partner-applications': {
+    summary: 'Review queue for partner enquiries.',
+    auth: 'partner_application:manage',
+    query: [{ name: 'status', description: 'PENDING | CONTACTED | APPROVED | REJECTED.' }],
+    tag: 'Admin',
+  },
+  'PATCH /api/v1/admin/partner-applications/{id}': {
+    summary:
+      'Record a review decision. Approving does not create a tenant — that stays a separate, authenticated action.',
+    auth: 'partner_application:manage',
+    body: partner.reviewPartnerApplicationSchema,
+    tag: 'Admin',
+  },
+
   'POST /api/v1/account/password': {
     summary:
       'Change the signed-in account\'s own password. Always requires the current password, and clears the mustChangePassword flag.',

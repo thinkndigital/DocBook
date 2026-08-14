@@ -440,6 +440,27 @@ Remaining hardening work, recorded rather than implied:
 - The restore drill is documented but has not been run against this deployment; there is no
   real data to restore yet.
 
+## Post-launch additions (delivered after Phase 14)
+
+- **Landing page** — the home page had been a Phase 5 placeholder. Hero with a working
+  search, real specialty/city sections, how-it-works, trust, symptom-check callout. No
+  invented counts, testimonials or partner logos.
+- **Forced password change** — every admin-created account starts on
+  `DEFAULT_ASSIGNED_PASSWORD` (committed to this repo) and nothing had required a change.
+  `User.mustChangePassword` + middleware enforcement + `/account/password`.
+- **Partner applications** — clinics and hospitals had no way to ask to join at all. Public
+  form, admin review queue, and approval that deliberately creates nothing.
+- **Mobile layout** — the three sidebar portals were unusable below `md` (a fixed 256px
+  sidebar on a 375px screen); marketplace header collided with itself; five tables had no
+  scroll container.
+- **Base URL / region fix** — `NEXTAUTH_URL` named `us-central1` while the backend runs in
+  `us-east4`, which accepted logins and then dropped the session cookie on a host nobody
+  was browsing. Middleware now logs `NEXTAUTH_URL_HOST_MISMATCH`.
+
+**Still not built:** password *reset* (no email channel configured — a reset without
+delivery locks people out), durable file storage (`STORAGE_PROVIDER=local` is wiped every
+rollout), and a real payment gateway.
+
 ## Immediate next step
 
 Phase 13 (performance + SEO) — **delivered**. robots.txt with the private surfaces
