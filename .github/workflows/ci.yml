@@ -1,0 +1,96 @@
+name: CI
+
+# Runs on every push and pull request. Nothing here touches a real environment: the only
+# database is a throwaway Postgres container, and no production secret is referenced.
+#
+# The integration tests are the reason this workflow exists at all. They need a real
+# Postgres — the double-booking guarantee is a partial unique index plus a SERIALIZABLE
+# transaction, and neither exists in a mock. A suite that skipped them when no database was
+# present would go green forever while the guarantee quietly stopped being true, so they
+# fail loudly instead (see CLAUDE.md).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A second push to the same branch cancels the first: the older run's verdict is about code
+# nobody will merge.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: docbook
+          POSTGRES_PASSWORD: docbook
+          POSTGRES_DB: docbook
+        ports: ['5432:5432']
+        # Without this the job races the container: the first migration attempt lands
+        # before Postgres finishes initialising and fails as a connection error.
+        options: >-
+          --health-cmd="pg_isready -U docbook"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://docbook:docbook@localhost:5432/docbook
+      DIRECT_DATABASE_URL: postgresql://docbook:docbook@localhost:5432/docbook
+      # Test-only values. Real ones live in Secret Manager and are never referenced here —
+      # a CI run triggered by a fork's pull request must not be able to reach production.
+      NEXTAUTH_SECRET: ci-test-secret-not-used-anywhere-else
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      # Must decode to exactly 32 bytes or the app refuses to boot (src/lib/env-check.ts).
+      FIELD_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `migrate deploy`, not `db push`: this asserts the checked-in migrations actually
+      # apply to an empty database. A schema edited without a matching migration passes
+      # tsc and fails here, which is the point.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Tests
+        run: npm run test
+
+      # Regenerates the OpenAPI document and fails if the working tree changes. The
+      # generator already errors on an undocumented route; this catches the other
+      # direction — a committed openapi.json that no longer matches the schemas.
+      - name: OpenAPI is current
+        run: |
+          npm run openapi
+          if ! git diff --quiet -- public/openapi.json; then
+            echo "::error::public/openapi.json is stale. Run 'npm run openapi' and commit the result."
+            git diff --stat -- public/openapi.json
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build

@@ -46,6 +46,9 @@
       "name": "Notifications"
     },
     {
+      "name": "Operations"
+    },
+    {
       "name": "Patient"
     },
     {
@@ -581,6 +584,37 @@
           },
           "404": {
             "description": "Not found, or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Liveness/readiness probe. 200 when the database is reachable, 503 when it is not. Unauthenticated and deliberately uninformative.",
+        "description": "Public — no authentication.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
             "content": {
               "application/json": {
                 "schema": {

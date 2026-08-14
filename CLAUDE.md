@@ -9,14 +9,15 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–13 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: all 14 phases delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
 representative portal, payments/subscriptions/commissions, medical records &
 prescriptions, notifications/calendar, and the AI layer (symptom triage, patient assistant,
 clinic briefing, no-show risk), role-scoped analytics with a generated OpenAPI document, and the SEO/performance layer.
-**Not built yet**: deployment hardening (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
-describes its scope.
+Deployment is CI + Neon + App Hosting with a documented restore drill. `ROADMAP.md` records
+what each phase deliberately did *not* claim — read that before assuming a capability
+exists.
 
 ## Commands
 
@@ -34,7 +35,10 @@ npx prisma validate         # schema syntax check (needs DATABASE_URL set, even 
 docker compose up -d db     # local Postgres 16 on :5432 (user/pass/db all "docbook")
 ```
 
-`npm run test` runs the suite (91 tests). Integration tests need a real Postgres with
+`npm run test` runs the suite (unit + integration). CI (`.github/workflows/ci.yml`) runs
+lint, typecheck, `prisma migrate deploy` against a Postgres service container, the suite, an
+OpenAPI drift check and a build on every push — so a schema change without a migration fails
+there rather than in production. Integration tests need a real Postgres with
 migrations applied — they fail loudly rather than skipping, because a silently-skipped
 double-booking test is how that guarantee quietly stops being true. Also validate with
 `npm run build` and `npx tsc --noEmit`. For anything touching `prisma/schema.prisma`
@@ -234,6 +238,15 @@ since it never leaves the platform. The doctor calendar feed
 (`src/lib/services/calendar.ts`) is read-only iCal, not OAuth sync: its 256-bit path token
 is the only credential, so it carries no clinical content and regenerating it revokes every
 existing subscription.
+
+**Error reporting is typed to exclude clinical content.** `src/lib/monitoring/` follows the
+provider shape (`ERROR_REPORTER`, default `console` — structured JSON on stderr, which Cloud
+Run turns into an alertable Cloud Logging entry with nothing leaving the project).
+`ErrorContext` has fields for route, opaque user id, tenant, role and code — and *no* field
+for a name, email, diagnosis or note; `redactMessage` scrubs the values Prisma echoes into
+constraint errors. `reportError` swallows its own failures: observability must never turn a
+handled 500 into an unhandled one. Next still logs the raw message separately — that is a
+known limitation, not an oversight.
 
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass

@@ -18,7 +18,7 @@ no phase ships stubs or fake data paths (§47).
 | 11 | Analytics (KPIs, dashboards, OpenAPI docs) | **Delivered** |
 | 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | **Delivered** |
 | 13 | Performance + SEO (structured data, sitemaps, Core Web Vitals pass) | Delivered |
-| 14 | Production deployment (CI/CD, backups, monitoring, chosen cloud target) | Not started |
+| 14 | Production deployment (CI/CD, backups, monitoring, chosen cloud target) | Delivered |
 
 ## Why phased instead of all at once
 
@@ -404,6 +404,41 @@ Remaining hardening work, recorded rather than implied:
 - **A QR code for 2FA enrollment.** The `otpauth://` URI is returned and every mainstream
   authenticator accepts a typed secret, so enrollment works; rendering the QR needs an image
   dependency.
+
+## Phase 14 — production deployment (delivered)
+
+- **CI** (`.github/workflows/ci.yml`) — lint, typecheck, migrations against a throwaway
+  Postgres 16 service container, the full suite, an OpenAPI drift check, and a production
+  build, on every push and pull request. `migrate deploy` rather than `db push`, so a schema
+  edited without a matching migration fails here instead of in production. No production
+  secret is referenced, so a fork's pull request cannot reach the real database.
+- **Error reporting** (`src/lib/monitoring/`) — `ErrorReporter` behind `ERROR_REPORTER`,
+  same provider shape as payments/notifications/storage. `console` is the default and a
+  legitimate production choice on Cloud Run: structured JSON on stderr becomes a Cloud
+  Logging entry, alertable on `severity=ERROR`, with nothing leaving the GCP project.
+  `ErrorContext` has no field for a name, email, diagnosis or note, and `redactMessage`
+  scrubs the ones Prisma echoes into constraint errors.
+- **Health check** — `GET /api/health`, unauthenticated and deliberately uninformative:
+  200/503 on a `SELECT 1`, no version or hostname for an endpoint anyone can poll.
+- **Error boundaries** — `global-error.tsx` surfaces Next's digest so support can join a
+  user report to a log line, without an unauthenticated client-side ingest endpoint.
+- **Backups & DR** — Neon history retention plus a branch-based monthly restore drill,
+  written down in DEPLOYMENT.md with stated RPO/RTO. The drill deliberately checks that
+  clinical fields still decrypt under the current `FIELD_ENCRYPTION_KEY`: a database backup
+  without that key is not a recovery.
+
+**Not claimed, and deliberately so:**
+
+- No deploy step in CI. App Hosting rolls out on push; migrations stay a manual button
+  because auto-migrating on merge sends a schema change to production with no window to
+  catch a mistake, and not every migration is reversible.
+- Next.js still logs the raw, unredacted error alongside the redacted structured record.
+  Removing that duplicate needs Next 15's `onRequestError` hook.
+- Uploaded documents have no backup because they have no durable storage —
+  `STORAGE_PROVIDER=local` is container-local and wiped every rollout. An S3/GCS adapter is
+  the prerequisite, not the backup policy.
+- The restore drill is documented but has not been run against this deployment; there is no
+  real data to restore yet.
 
 ## Immediate next step
 

@@ -318,26 +318,102 @@ Recommendation: start on Fly.io or Render for speed, revisit AWS if/when a GCC c
 regulator requires in-country hosting. This is a decision for the user to confirm — it
 affects the CI/CD pipeline (Phase 14) and isn't blocking Phase 1.
 
-## CI/CD (Phase 14, not yet built)
+## CI
 
-Planned: GitHub Actions workflow — `lint` + `tsc --noEmit` + `prisma migrate deploy
---dry-run` on every PR; `next build` + `prisma migrate deploy` + deploy on merge to the
-release branch.
+`.github/workflows/ci.yml` runs on every push and pull request: lint, typecheck, migrations
+against a throwaway Postgres 16 service container, the full test suite, an OpenAPI drift
+check, and a production build.
+
+Two details are load-bearing:
+
+- **`prisma migrate deploy`, not `db push`.** It asserts that the checked-in migrations
+  apply cleanly to an empty database. A schema edited without a matching migration passes
+  `tsc` and fails here — which is the only place it can fail before production.
+- **No production secret is referenced.** The env block is test-only values against a local
+  container, so a run triggered by a fork's pull request cannot reach the real database.
+  Deployment secrets stay in Secret Manager, and the two workflows that touch production
+  (`migrate.yml`, `bootstrap.yml`) are `workflow_dispatch` only.
+
+Deployment itself is not in CI. App Hosting rolls out on push to the connected branch, and
+migrations are a separate manual button — see "Migrations must be applied before serving"
+above for why auto-migrating on merge is deliberately not done.
+
+## Monitoring & error tracking
+
+`src/lib/monitoring/` follows the same provider shape as payments, notifications and
+storage: an `ErrorReporter` interface with `ERROR_REPORTER` selecting the adapter.
+
+**`console` is the default and is a real production choice here, not a stub.** App Hosting
+runs on Cloud Run, whose logging agent parses a JSON line on stderr into a structured Cloud
+Logging entry; a log-based alert on `severity=ERROR` gives paging with nothing leaving the
+GCP project. For a healthcare platform that last property matters — no third party becomes
+an additional data processor.
+
+What it does not give you: grouping, deduplication, release tracking, or a notification the
+first time a *new* error type appears. When those are wanted, add an adapter implementing
+`ErrorReporter` and register it in `src/lib/monitoring/index.ts`. Nothing else changes.
+
+**What a report may contain is enforced by the type, not by discipline.** `ErrorContext`
+has fields for route, opaque user id, tenant, role and an error code — and no field for a
+name, email, phone, diagnosis or note. `redactMessage` additionally scrubs emails, phone
+numbers, connection strings and `v1:` ciphertext out of exception *messages*, because
+Prisma echoes column values into constraint-violation errors.
+
+*Honest limitation:* Next.js also logs the raw, unredacted error itself. The reporter adds a
+structured, redacted record alongside that; it does not replace it. Suppressing the
+duplicate needs Next 15's `onRequestError` hook.
+
+Reporting is fire-and-forget and swallows its own failures — same rule as notifications: a
+failing observability backend must never turn a handled 500 into an unhandled one.
+
+### Health checks
+
+`GET /api/health` — 200 when the database answers `SELECT 1`, 503 when it does not.
+Unauthenticated (an uptime monitor cannot present a credential) and therefore deliberately
+uninformative: no version, no hostname, no migration state, no error text, since anyone can
+poll it. Point an uptime monitor at it and alert on 503 or on timeouts.
+
+## Backups & disaster recovery
+
+The database is Neon (see "Getting a Postgres"), so backups are Neon's history retention
+rather than a cron job of our own.
+
+**Configure once, in the Neon console:** Settings → Storage → history retention. The free
+tier's default is 24 hours; raise it before real patient data exists. Restore is
+branch-based — Neon creates a branch from a past timestamp rather than overwriting the
+current one, which is the property that makes the drill below safe to run against
+production.
+
+**Restore drill — run monthly, and record the date it was last run:**
+
+1. Neon → Branches → **New branch** → *from a past point in time*, pick a timestamp ~1 hour
+   ago. This reads history; it does not touch the live branch.
+2. Copy that branch's connection string.
+3. `DATABASE_URL=<branch> DIRECT_DATABASE_URL=<branch> npx prisma migrate status` — expect
+   *Database schema is up to date*.
+4. Spot-check that rows exist and clinical fields still decrypt with the **current**
+   `FIELD_ENCRYPTION_KEY`. This is the step that actually matters: the encrypted columns are
+   unreadable without that key, so a database backup alone is not a recovery. If the key
+   were ever rotated, a restore from before the rotation decrypts to
+   `decryptField`'s marker and the data is gone.
+5. Delete the branch.
+
+A backup you have never restored is a hypothesis. The drill exists to test the key and the
+migration history together, not the storage.
+
+**What is *not* covered:** uploaded documents. `STORAGE_PROVIDER=local` writes to
+container-local disk, which is wiped on every rollout and shared with nothing. Until an S3
+or GCS adapter is configured there is no file backup because there is no durable file
+storage — see the three-things list above.
+
+**Recovery objectives, stated rather than implied:** with Neon history retention at 24
+hours, RPO is effectively seconds (point-in-time within the window) and RTO is minutes
+(create branch, repoint `DATABASE_URL`, roll out). Both degrade to "the last rollout" if
+retention lapses, which is why retention is the one setting to check before launch.
 
 ## Migrations
 
 `npx prisma migrate deploy` in production — never `migrate dev` (which can prompt/reset).
 Migrations are checked into `prisma/migrations/` and reviewed like any other code change.
 
-## Backups & disaster recovery (Phase 14, not yet built)
 
-Planned baseline once a managed Postgres provider is chosen: daily automated snapshots,
-point-in-time recovery enabled, monthly restore-drill documented in a runbook. Not
-implemented yet because it's provider-specific (RDS vs Fly Postgres vs Render Postgres
-each configure this differently) — deferred until DEPLOYMENT.md's cloud-target decision
-above is made.
-
-## Monitoring & error tracking (Phase 14, not yet built)
-
-Planned: Sentry (or equivalent) for error tracking wired via a provider interface
-consistent with the payments/notifications pattern, so it's not hard-coded to one vendor.

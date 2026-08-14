@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { SessionUser } from '@/lib/auth';
 import { hasPermission, type Permission } from '@/types/rbac';
 import { recordAudit } from '@/lib/audit';
+import { reportError } from '@/lib/monitoring';
 
 export class AuthorizationError extends Error {}
 
@@ -44,6 +45,21 @@ export async function withAuthorization<T>(
         { status }
       );
     }
+
+    // Anything else is a genuine fault. Report it with the context that makes it
+    // actionable — which permission-guarded operation failed, for which tenant and role —
+    // before rethrowing so Next still produces its 500 and digest.
+    //
+    // Honest limitation: Next also logs the raw, unredacted message itself. This adds a
+    // structured, redacted record alongside it; it does not suppress the other one.
+    // Removing that duplicate needs Next's `onRequestError` hook (Next 15) — recorded in
+    // ROADMAP.md rather than silently assumed.
+    reportError(err, {
+      where: `permission:${permission}`,
+      userId: session?.id,
+      tenantId: session?.tenantId ?? undefined,
+      role: session?.role,
+    });
     throw err;
   }
 }

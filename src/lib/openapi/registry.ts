@@ -63,6 +63,13 @@ export const ROUTES: Record<string, RouteMeta> = {
   },
 
   // ---- Public marketplace ----
+  'GET /api/health': {
+    summary:
+      'Liveness/readiness probe. 200 when the database is reachable, 503 when it is not. Unauthenticated and deliberately uninformative.',
+    auth: 'public',
+    tag: 'Operations',
+  },
+
   'GET /api/v1/public/doctors': {
     summary: 'Search verified doctors. Returns an explicit field allowlist — never credentials.',
     auth: 'public',
