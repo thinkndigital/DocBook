@@ -9,7 +9,6 @@ const MESSAGES: Record<string, string> = {
   INVALID_CURRENT_PASSWORD: 'كلمة السر الحالية غير صحيحة.',
   SAME_AS_ASSIGNED: 'هذه هي كلمة السر الافتراضية المعروفة. اختر غيرها.',
   SAME_AS_CURRENT: 'كلمة السر الجديدة مطابقة للحالية.',
-  VALIDATION_ERROR: 'كلمة السر الجديدة يجب أن تكون ١٢ حرفاً على الأقل.',
 };
 
 export function PasswordForm({ required }: { required: boolean }) {
@@ -88,12 +87,10 @@ export function PasswordForm({ required }: { required: boolean }) {
             type="password"
             autoComplete="new-password"
             required
-            minLength={12}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
           />
-          <p className="mt-1 text-xs text-neutral-500">١٢ حرفاً على الأقل.</p>
         </div>
 
         <div>

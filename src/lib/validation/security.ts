@@ -8,13 +8,20 @@ export const twoFactorCodeSchema = z.object({
 /**
  * Changing one's own password.
  *
- * The minimum is 12 rather than the more common 8. These accounts reach patient records,
- * and the alternative to a strong password here is the one printed in this repository —
- * anything that merely clears a low bar is not an improvement on it. No composition rules
- * (upper/digit/symbol): they push people toward predictable substitutions and shorter
- * secrets, while length is what actually costs an attacker.
+ * No minimum length, by product decision. Recorded here rather than left to be rediscovered:
+ * these accounts reach patient records, so the usual argument for a floor applies, and the
+ * owner chose not to impose one. The UI does not state a requirement either — a rule that
+ * is enforced but unstated is worse than no rule.
+ *
+ * The 200 cap is not a strength rule and stays regardless: it bounds what gets hashed.
+ *
+ * What is *not* a length rule and therefore survives this: `changeOwnPassword` refuses
+ * DEFAULT_ASSIGNED_PASSWORD as a new value. Without that, "change your password" could be
+ * satisfied by re-entering the one published in this repository, which would make the whole
+ * mustChangePassword flow ceremonial.
  */
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(12).max(200),
+  // min(1) only rejects an empty string; it is not a strength requirement.
+  newPassword: z.string().min(1).max(200),
 });

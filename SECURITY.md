@@ -246,9 +246,17 @@ usable message.
 it for a first login is tempting — the user just authenticated — but the premise of the
 flag is that the current password is public, so skipping the check would let anyone who
 reached a session (a shared device, a reception desk left open) take the account over
-without knowing anything. It also rejects `DEFAULT_ASSIGNED_PASSWORD` as a *new* password:
-at 13 characters it clears the 12-character minimum, so the length rule alone would let it
-through.
+without knowing anything.
+
+It also rejects `DEFAULT_ASSIGNED_PASSWORD` as a *new* password. This is not a strength
+rule and does not depend on one: without it, "change your password" is satisfied by
+retyping the value published in this repository, and the whole flow becomes ceremony.
+
+**There is no minimum length**, by product decision — the owner chose not to impose one and
+this is recorded rather than left to be rediscovered as a bug. The usual argument for a
+floor does apply here, since these accounts reach patient records. The 200-character cap
+is unrelated: it bounds what gets hashed. The UI states no requirement either, because a
+rule that is enforced but unstated is worse than no rule.
 
 The route has no `userId` parameter. It only ever acts on the session's own account; a
 route that could set someone else's password is an account-takeover primitive wearing an

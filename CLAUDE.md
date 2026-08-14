@@ -263,7 +263,9 @@ someone (doctor, staff, representative, clinic admin, desk-registered patient) s
 `/account/password` and its API route; the flag travels in the JWT so the check is free.
 `changeOwnPassword` still demands the current password (the flag exists *because* that
 value is public, so a session alone must not be enough) and refuses the assigned default as
-a new password. `selfRegisterPatient` never sets the flag — that password was the user's own
+a new password — that refusal is not a strength rule and is what stops the flow being
+satisfied by retyping the published value. There is deliberately **no minimum length**
+(owner's decision, see SECURITY.md); don't add one back as a "fix". `selfRegisterPatient` never sets the flag — that password was the user's own
 choice. There is no password *reset* flow: no email channel is configured, and a reset
 without delivery locks people out rather than in.
 
