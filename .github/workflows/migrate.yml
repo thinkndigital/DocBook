@@ -1,0 +1,115 @@
+name: Apply database migrations
+
+# Manual only, on purpose.
+#
+# App Hosting builds and serves; it never runs migrations, so this fills that gap without
+# putting schema changes on an automatic trigger. Auto-migrating on every push means a
+# migration reaches production the moment someone merges, with no window to notice it is
+# wrong — and some migrations are not reversible. A human pressing "Run workflow" is the
+# correct amount of ceremony for a schema change to a healthcare database.
+#
+# HOW TO USE
+#   1. Add a repository secret named DIRECT_DATABASE_URL:
+#        GitHub -> Settings -> Secrets and variables -> Actions -> New repository secret
+#      Use Neon's DIRECT string (the one WITHOUT `-pooler` in the hostname). Migrations take
+#      a session-level advisory lock that PgBouncer's transaction pooling does not preserve,
+#      so the pooled endpoint hangs or fails with a confusing lock error.
+#   2. Actions tab -> "Apply database migrations" -> Run workflow.
+#
+# This removes any need for Postgres, Node, or a terminal on your own machine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'What to run'
+        required: true
+        default: status
+        type: choice
+        options:
+          - status   # read-only: show which migrations are applied. Safe. Start here.
+          - deploy   # apply pending migrations
+          - seed     # deploy, then insert demo data — NEVER against real patient data
+      confirm:
+        description: 'Type the database name (neondb) to confirm a write action'
+        required: false
+        default: ''
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # A GitHub Environment adds an optional approval gate and keeps the secret scoped.
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # Guard against a mis-click on the dropdown. `status` is read-only so it needs no
+      # confirmation; anything that writes does.
+      - name: Confirm write actions
+        if: inputs.action != 'status'
+        run: |
+          if [ "${{ inputs.confirm }}" != "neondb" ]; then
+            echo "::error::'${{ inputs.action }}' writes to the database. Re-run and type 'neondb' in the confirm field."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the secret is present
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: |
+          if [ -z "$DIRECT_DATABASE_URL" ]; then
+            echo "::error::Repository secret DIRECT_DATABASE_URL is not set. See the comments at the top of this file."
+            exit 1
+          fi
+          # Neon's pooled host contains "-pooler". Catch it here rather than letting the
+          # migration hang on an advisory lock that transaction pooling cannot hold.
+          case "$DIRECT_DATABASE_URL" in
+            *-pooler.*)
+              echo "::error::DIRECT_DATABASE_URL points at the POOLED endpoint (hostname contains '-pooler'). Migrations need the direct one — turn OFF 'Connection pooling' in Neon's Connect dialog and copy that string instead."
+              exit 1
+              ;;
+          esac
+
+      # Both variables are set from the same direct string: the Prisma CLI reads `directUrl`
+      # for migrations, but the schema still requires `url` to be present.
+      - name: Migration status
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: npx prisma migrate status
+
+      - name: Apply migrations
+        if: inputs.action == 'deploy' || inputs.action == 'seed'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Seed demo data
+        if: inputs.action == 'seed'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: |
+          echo "::warning::Seeding demo accounts. These use a well-known password and must never exist alongside real patient data."
+          npx prisma db seed
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Database migration — \`${{ inputs.action }}\`"
+            echo ""
+            echo "Ran against the **direct** Neon endpoint."
+            echo ""
+            echo "The app itself connects through the **pooled** endpoint (\`DATABASE_URL\` in Secret Manager); this job never touches that."
+          } >> "$GITHUB_STEP_SUMMARY"

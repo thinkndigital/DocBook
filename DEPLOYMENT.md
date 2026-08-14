@@ -142,6 +142,30 @@ or fails with a lock error that reads like a database problem rather than a rout
 with it unset. It therefore does not belong in `apphosting.yaml`, only in your shell and in
 CI. For a plain single Postgres (local, Cloud SQL) set both to the same value.
 
+### Applying migrations without a local machine
+
+You do **not** need Postgres installed anywhere. Neon is the database; the only local
+requirement was ever the one-off `prisma migrate deploy`, and
+`.github/workflows/migrate.yml` removes that too.
+
+1. Add a repository secret `DIRECT_DATABASE_URL` (GitHub → Settings → Secrets and variables
+   → Actions). Use Neon's **direct** string — the one *without* `-pooler` in the hostname.
+2. Actions → **Apply database migrations** → Run workflow → `status` first (read-only, shows
+   what is applied), then `deploy`.
+
+It is **manual only, by design.** Auto-migrating on every push puts a schema change into
+production the moment someone merges, with no window to catch a mistake, and not every
+migration is reversible. A human pressing the button is the right amount of ceremony for a
+schema change to a healthcare database.
+
+Two guards are built in: write actions require typing the database name, and the job refuses
+to run if the supplied URL contains `-pooler` — migrations through the pooled endpoint hang
+on an advisory lock that transaction pooling cannot hold, and the resulting error reads like
+a database fault rather than a wrong-endpoint mistake.
+
+The `seed` option inserts demo accounts with a well-known password. It exists for a fresh
+demo environment and must never be run against real patient data.
+
 ### Three things App Hosting does not give you
 
 These do not stop a rollout going green, which is exactly why they are worth stating.
@@ -151,8 +175,8 @@ These do not stop a rollout going green, which is exactly why they are worth sta
    See "Getting a Postgres" below.
 2. **A migration step.** App Hosting builds and serves; it never runs
    `prisma migrate deploy`. An un-migrated database produces exactly the "Internal Server
-   Error" class documented above. Run migrations from CI or by hand against the production
-   URL as part of each release, before the rollout is promoted.
+   Error" class documented above. `.github/workflows/migrate.yml` fills the gap — see
+   "Applying migrations without a local machine" below.
 3. **Durable file storage.** `STORAGE_PROVIDER=local` writes to container-local disk, which
    is wiped on every rollout and not shared between instances. Move to an S3-compatible or
    GCS adapter before any real patient document is uploaded.
