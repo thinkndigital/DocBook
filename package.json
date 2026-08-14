@@ -11,6 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
+    "reference-data": "tsx prisma/reference-data.ts",
+    "promote-admin": "tsx scripts/promote-admin.ts",
     "openapi": "tsx scripts/generate-openapi.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",

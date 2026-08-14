@@ -1,114 +1,30 @@
 import { PrismaClient, TenantType, TenantStatus, UserRole, SubscriptionTier } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_ASSIGNED_PASSWORD } from '../src/lib/constants';
+import { seedReferenceData } from './reference-data';
 
 const prisma = new PrismaClient();
-
-const JORDAN_CITIES = [
-  { name: 'Amman', nameAr: 'عمان' },
-  { name: 'Irbid', nameAr: 'إربد' },
-  { name: 'Zarqa', nameAr: 'الزرقاء' },
-  { name: 'Aqaba', nameAr: 'العقبة' },
-  { name: 'Salt', nameAr: 'السلط' },
-  { name: 'Madaba', nameAr: 'مادبا' },
-];
-
-const SPECIALTIES = [
-  { slug: 'general-practice', name: 'General Practice', nameAr: 'طب عام' },
-  { slug: 'dentistry', name: 'Dentistry', nameAr: 'طب الأسنان' },
-  { slug: 'dermatology', name: 'Dermatology', nameAr: 'الجلدية' },
-  { slug: 'pediatrics', name: 'Pediatrics', nameAr: 'طب الأطفال' },
-  { slug: 'cardiology', name: 'Cardiology', nameAr: 'أمراض القلب' },
-  { slug: 'obstetrics-gynecology', name: 'Obstetrics & Gynecology', nameAr: 'نسائية وتوليد' },
-  { slug: 'orthopedics', name: 'Orthopedics', nameAr: 'العظام' },
-  { slug: 'psychiatry', name: 'Psychiatry', nameAr: 'الطب النفسي' },
-];
 
 const DEFAULT_PASSWORD = DEFAULT_ASSIGNED_PASSWORD;
 
 async function main() {
-  const jordan = await prisma.country.upsert({
-    where: { code: 'JO' },
-    update: {},
-    create: {
-      code: 'JO',
-      name: 'Jordan',
-      nameAr: 'الأردن',
-      currency: 'JOD',
-      phonePrefix: '+962',
-      timezone: 'Asia/Amman',
-      languages: ['ar', 'en'],
-      taxRules: { vatPercent: 16 },
-    },
-  });
+  // Countries, cities, specialties and plans live in reference-data.ts because production
+  // needs them too. Everything below this line is demo content with a well-known password
+  // and must never be applied to a database holding real records.
+  const {
+    country: jordan,
+    cities,
+    specialties,
+    plans,
+    firstCity: ammanCity,
+    firstSpecialty: generalPractice,
+  } = await seedReferenceData(prisma);
 
-  const cities = await Promise.all(
-    JORDAN_CITIES.map((c) =>
-      prisma.city.upsert({
-        where: { countryId_name: { countryId: jordan.id, name: c.name } },
-        update: {},
-        create: { countryId: jordan.id, name: c.name, nameAr: c.nameAr },
-      })
-    )
-  );
-
-  const specialties = await Promise.all(
-    SPECIALTIES.map((s) =>
-      prisma.specialty.upsert({
-        where: { slug: s.slug },
-        update: {},
-        create: s,
-      })
-    )
-  );
-
-  const [ammanCity] = cities;
-  const [generalPractice] = specialties;
-  if (!ammanCity || !generalPractice) {
-    throw new Error('Seed data lists (cities/specialties) must not be empty.');
-  }
-
-  const plans = await Promise.all([
-    prisma.subscriptionPlan.create({
-      data: {
-        tier: SubscriptionTier.FREE,
-        name: 'Free',
-        priceMonthlyMinor: 0,
-        bookingCommissionPct: 15,
-        maxBranches: 1,
-        maxDoctors: 1,
-        apiAccess: false,
-        whiteLabel: false,
-        features: { basicProfile: true, reminders: false, analytics: false },
-      },
-    }),
-    prisma.subscriptionPlan.create({
-      data: {
-        tier: SubscriptionTier.PRO,
-        name: 'Pro',
-        priceMonthlyMinor: 4900,
-        bookingCommissionPct: 0,
-        maxBranches: 3,
-        maxDoctors: 10,
-        apiAccess: false,
-        whiteLabel: false,
-        features: { unlimitedBookings: true, reminders: true, analytics: true, priorityListing: true },
-      },
-    }),
-    prisma.subscriptionPlan.create({
-      data: {
-        tier: SubscriptionTier.ENTERPRISE,
-        name: 'Enterprise',
-        priceMonthlyMinor: 19900,
-        bookingCommissionPct: 0,
-        maxBranches: null,
-        maxDoctors: null,
-        apiAccess: true,
-        whiteLabel: true,
-        features: { representatives: true, advancedAnalytics: true, dedicatedSupport: true },
-      },
-    }),
-  ]);
+  // Pick the demo clinic's plan by tier rather than by position — reference-data.ts is free
+  // to reorder or add plans, and an index would silently subscribe the demo tenant to the
+  // wrong commission percentage instead of failing.
+  const proPlan = plans.find((p) => p.tier === SubscriptionTier.PRO);
+  if (!proPlan) throw new Error('Reference data must define a PRO subscription plan.');
 
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
 
@@ -134,7 +50,7 @@ async function main() {
       status: TenantStatus.ACTIVE,
       subscriptions: {
         create: {
-          planId: plans[1].id,
+          planId: proPlan.id,
           status: 'ACTIVE',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

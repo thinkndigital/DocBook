@@ -235,6 +235,56 @@ Seeding is deliberately **not** in this workflow. `npx prisma db seed` creates d
 with a well-known password, and that has no business sitting one click away from a database
 that may hold real patient records; run it by hand against a demo environment only.
 
+### First run: reference data and the first admin
+
+A freshly migrated database is empty in two different ways, and only one of them is a
+choice.
+
+**Reference data is not optional.** `Country`, `City`, `Specialty` and `SubscriptionPlan`
+rows are configuration the application reads at runtime — `src/lib/country-config.ts` gets
+currency, phone format and tax rules from the `Country` table, and the marketplace and
+symptom triage both resolve against real `Specialty` rows. Without them the platform is not
+"empty", it is broken. These live in `prisma/reference-data.ts`, separate from the demo
+content in `prisma/seed.ts`, so they can be applied to production: no credentials, no sample
+records, every write idempotent.
+
+**There is no way to create the first admin through the product.** The only public sign-up
+path (`/api/v1/auth/register`) creates a `PATIENT`, and nothing in the application can mint
+a `SUPER_ADMIN` — a route that could would be the most valuable thing on the platform to
+find. So the first admin is made out of band: register yourself through the site like any
+other user, then promote that account.
+
+Actions → **Bootstrap production data** → Run workflow:
+
+- *Apply reference data* — leave ticked on the first run; safe to re-run later after adding
+  a city or specialty.
+- *Email of an EXISTING account to promote* — the address you registered with. Blank skips
+  it.
+
+The account must already exist. Requiring that means the password was chosen by a human
+through the normal flow and never passed through a workflow input, a command line, or a log.
+The email is an input rather than a secret on purpose: it is not a credential, and having it
+in the run history is what makes "who was granted platform admin, and when" answerable.
+
+Sign out and back in afterwards — the role is read into the session at login, so an existing
+session keeps the old one.
+
+By hand, against any database:
+
+```bash
+npm run reference-data
+ADMIN_EMAIL=you@example.com npm run promote-admin
+```
+
+Promotion also clears the account's `tenantId`. A platform admin belongs to no clinic, and a
+leftover tenant id would put every query it makes back inside one tenant's scope through the
+middleware in `src/lib/tenant.ts` — producing a silently filtered view of the platform that
+reads as missing data.
+
+Note that `SUPER_ADMIN` still gets nothing clinical: medical records and prescriptions are
+gated on an actual treatment relationship in `src/lib/services/clinical-access.ts`, which
+excludes every role that is not the treating doctor or the patient.
+
 
 ### Three things App Hosting does not give you
 

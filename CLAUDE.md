@@ -45,6 +45,16 @@ constraint behavior (see the double-booking guarantee below) don't show up in `t
 Seed creates three login accounts (password `DocBook@2026` for all): `admin@docbook.dev`
 (SUPER_ADMIN), `dr.laila@docbook.dev` (DOCTOR), `patient@docbook.dev` (PATIENT).
 
+**Seeding is split in two, and the split is load-bearing.** `prisma/reference-data.ts`
+holds countries, cities, specialties and subscription plans — configuration the app reads at
+runtime (`country-config.ts` gets currency/phone/tax from the `Country` row), safe for
+production, every write idempotent. `prisma/seed.ts` calls it and *then* adds demo tenants,
+doctors and the accounts above under a password committed to this repo; that half must never
+touch a real database. Add reference rows to `reference-data.ts`, demo content to `seed.ts`.
+The first `SUPER_ADMIN` on a real deployment comes from `scripts/promote-admin.ts`
+(`ADMIN_EMAIL=… npm run promote-admin`) against an account registered through the site — no
+route can create one, deliberately.
+
 ## Architecture
 
 Full detail lives in `ARCHITECTURE.md`, `DATABASE.md`, and `SECURITY.md` — read those

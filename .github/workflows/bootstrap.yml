@@ -1,0 +1,100 @@
+name: Bootstrap production data
+
+# Manual only, and deliberately separate from "Apply database migrations".
+#
+# Migrations change the shape of the database; this changes its contents. Keeping them
+# apart means a routine schema deploy can never also write rows, and this one can be run
+# months later without re-running anything structural.
+#
+# What it can do:
+#   1. Reference data — countries, cities, specialties, subscription plans. Safe on a
+#      database with real records: no credentials, no sample content, and every write is
+#      idempotent. The app does not work without these rows (src/lib/country-config.ts
+#      reads currency, phone format and tax rules from the Country table at runtime).
+#   2. Promote one existing account to SUPER_ADMIN. The account must already exist —
+#      register through the site first. Nothing here creates a user or sets a password.
+#
+# What it deliberately cannot do: run `prisma db seed`. That creates demo tenants, doctors
+# and logins under a password committed to this repository, and it has no business being
+# one click away from a database that may hold patient records. Run it by hand against a
+# throwaway environment if you want the demo content.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reference_data:
+        description: 'Apply reference data (countries, cities, specialties, plans)'
+        type: boolean
+        default: true
+      promote_email:
+        description: 'Email of an EXISTING account to promote to SUPER_ADMIN (blank to skip)'
+        type: string
+        default: ''
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check configuration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Repository secret DATABASE_URL is not set."
+            exit 1
+          fi
+          if [ "${{ inputs.reference_data }}" != "true" ] && [ -z "${{ inputs.promote_email }}" ]; then
+            echo "::error::Nothing to do — tick reference_data, or supply promote_email, or both."
+            exit 1
+          fi
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply reference data
+        if: ${{ inputs.reference_data }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run reference-data
+
+      # The email is a workflow input rather than a secret on purpose: it is not a
+      # credential, and having it visible in the run history is what makes "who was granted
+      # platform admin, and when" answerable later.
+      - name: Promote account to SUPER_ADMIN
+        if: ${{ inputs.promote_email != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADMIN_EMAIL: ${{ inputs.promote_email }}
+        run: npm run promote-admin
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Bootstrap"
+            echo ""
+            [ "${{ inputs.reference_data }}" = "true" ] \
+              && echo "- Reference data applied" \
+              || echo "- Reference data skipped"
+            if [ -n "${{ inputs.promote_email }}" ]; then
+              echo "- Promoted \`${{ inputs.promote_email }}\` to SUPER_ADMIN"
+              echo ""
+              echo "Sign out and back in — the role is read into the session at login."
+            else
+              echo "- No account promoted"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
