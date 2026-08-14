@@ -169,8 +169,23 @@ openssl rand -base64 32 | firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY \
 firebase apphosting:secrets:set DATABASE_URL --project studio-4511819966-bc14f --force
 ```
 
-Set `NEXTAUTH_URL` in `apphosting.yaml` to the backend's exact public URL — NextAuth builds callback URLs from it,
-and a mismatch produces a login loop that presents as "the password is wrong".
+### The base URL must match, region included
+
+`NEXTAUTH_URL` and `NEXT_PUBLIC_SITE_URL` in `apphosting.yaml` must be the backend's exact
+public URL. The hostname is `<backend>--<project>.<region>.hosted.app`, and **the region is
+part of it** — read it off the backend in the App Hosting console rather than assuming
+`us-central1`.
+
+This has already gone wrong once here, and it is worth knowing the shape of because nothing
+reports it. The config named `us-central1` while the backend ran in `us-east4`. NextAuth
+builds its callback URLs and scopes its session cookie from `NEXTAUTH_URL`, so sign-in
+accepted the password and set a cookie for a host nobody was browsing: the user came back to
+the public site still showing "sign in". No error, no 500, health checks green, and the
+report that reaches you is "my account doesn't work".
+
+`src/middleware.ts` now logs `NEXTAUTH_URL_HOST_MISMATCH` at `severity=ERROR`, once per
+process, when the incoming `Host` disagrees. It warns rather than failing — a deployment
+serving traffic must not be taken down by a wrong base URL — so alert on that code.
 
 **`FIELD_ENCRYPTION_KEY` is effectively permanent.** It decrypts every stored diagnosis,
 note, prescription, and TOTP secret. Rotating it without re-encrypting existing rows makes

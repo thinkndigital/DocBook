@@ -57,11 +57,19 @@ env:
       - RUNTIME
 
   # ---- Plain configuration ----
-  # Must match the backend's public URL exactly, including scheme and no trailing slash;
-  # NextAuth builds its callback URLs from this, and a mismatch produces a login loop that
-  # looks like "the password is wrong".
+  # Must match the backend's public URL exactly — scheme, region, no trailing slash.
+  #
+  # This was wrong once, and the failure is worth describing because nothing reports it: the
+  # value said `us-central1` while the backend runs in `us-east4`. NextAuth builds its
+  # callback URLs and sets its session cookie from this, so credentials were accepted and
+  # the cookie was then scoped to a host nobody was browsing. The user lands back on the
+  # public site still showing "sign in", indistinguishable from a wrong password.
+  #
+  # The region is part of the hostname and is *not* guessable — read it off the backend in
+  # the App Hosting console rather than assuming. `src/middleware.ts` now warns once per
+  # process when the incoming Host disagrees with this value.
   - variable: NEXTAUTH_URL
-    value: https://docbook--studio-4511819966-bc14f.us-central1.hosted.app
+    value: https://docbook--studio-4511819966-bc14f.us-east4.hosted.app
     availability:
       - RUNTIME
 
@@ -74,7 +82,7 @@ env:
   # correctly to a human, and search engines are told the whole site duplicates a host they
   # cannot reach. Keep both entries in step if the domain changes.
   - variable: NEXT_PUBLIC_SITE_URL
-    value: https://docbook--studio-4511819966-bc14f.us-central1.hosted.app
+    value: https://docbook--studio-4511819966-bc14f.us-east4.hosted.app
     availability:
       - BUILD
       - RUNTIME
