@@ -38,8 +38,16 @@ async function main() {
     where: { email: { equals: email, mode: 'insensitive' } },
   });
   if (!user) {
+    // "No account found" alone cannot distinguish a mistyped address from a sign-up that
+    // never wrote a row, and those need opposite fixes. The count separates them without
+    // printing anyone's address — these logs are public on a public repository.
+    const total = await prisma.user.count();
     throw new Error(
-      `No account found for ${email}. Register through the site first, then re-run this.`
+      `No account found for ${email}.\n` +
+        `The database holds ${total} account(s).\n` +
+        (total === 0
+          ? 'None at all — registration did not complete. Sign up on the site, confirm you land on a logged-in page, then re-run this.'
+          : 'So accounts exist but none match that address — check the spelling against what you typed when signing up.')
     );
   }
 
