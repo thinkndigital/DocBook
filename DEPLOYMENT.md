@@ -116,16 +116,33 @@ already exists.
 backend permission to read them. Without this the rollout fails exactly as if the secrets
 were missing.
 
+**Two roles are required, not one.** `roles/secretmanager.secretAccessor` grants only
+`secretmanager.versions.access` — reading a version's *value*. Before it reads anything the
+preparer must resolve `versions/latest` to a concrete version number, which needs
+`secretmanager.versions.get`, a metadata permission that lives in
+`roles/secretmanager.viewer`. Granting the accessor role alone produces a build that fails
+in the `preparer` step, ten seconds in, with `fah/misconfigured-secret` and
+`Permission 'secretmanager.versions.get' denied` — a message that reads like the secret is
+absent when it is present and half-readable.
+
+`viewer` exposes version names and states, never payloads; the value stays behind
+`secretAccessor`.
+
 ```bash
 SA="$(gcloud iam service-accounts list --format='value(email)' \
       | grep -E 'app-hosting|apphosting' | head -1)"
 echo "$SA"   # expect firebase-app-hosting-compute@studio-4511819966-bc14f.iam.gserviceaccount.com
 
 for S in NEXTAUTH_SECRET FIELD_ENCRYPTION_KEY DATABASE_URL; do
-  gcloud secrets add-iam-policy-binding "$S" \
-    --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
+  for R in secretAccessor viewer; do
+    gcloud secrets add-iam-policy-binding "$S" \
+      --member="serviceAccount:$SA" --role="roles/secretmanager.$R"
+  done
 done
 ```
+
+Verify before spending a rollout on it — `gcloud secrets get-iam-policy DATABASE_URL`
+should list both roles.
 
 If `echo "$SA"` prints nothing, the backend has not been created yet — create it in the
 App Hosting console first, then re-run the loop.
@@ -138,9 +155,9 @@ gcloud secrets versions access latest --secret=FIELD_ENCRYPTION_KEY
 ```
 
 The pure-console alternative (Secret Manager → **Create secret** ×3, then **Permissions** →
-grant *Secret Manager Secret Accessor* to the App Hosting service account on each) reaches
-the same end state, but it puts the two keys through your clipboard and the browser, which
-the stdin path above avoids.
+grant *Secret Manager Secret Accessor* **and** *Secret Manager Viewer* to the App Hosting
+service account on each) reaches the same end state, but it puts the two keys through your
+clipboard and the browser, which the stdin path above avoids.
 
 Equivalent by hand:
 
