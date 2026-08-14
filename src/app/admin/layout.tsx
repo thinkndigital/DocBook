@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 
 const NAV = [
   { href: '/admin', label: 'نظرة عامة' },
+  { href: '/admin/analytics', label: 'التحليلات' },
   { href: '/admin/tenants', label: 'الجهات الصحية' },
   { href: '/admin/doctors', label: 'توثيق الأطباء' },
   { href: '/admin/representatives', label: 'المندوبون' },

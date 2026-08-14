@@ -28,9 +28,10 @@ research only from public healthcare marketplaces, no shared branding/code/copy.
 - Medical records and prescriptions, encrypted at rest and gated by treatment relationship
 - Notifications across channels behind a provider abstraction, plus a read-only doctor iCal feed
 - The AI layer: symptom triage, patient assistant, clinic briefing, and no-show risk scoring
+- Role-scoped analytics dashboards, CSV export, and a generated OpenAPI document
 
-Not built yet: analytics (11), security hardening and the test suite (12), SEO/performance
-(13), production deployment (14).
+Not built yet: security hardening and the test suite (12), SEO/performance (13), production
+deployment (14).
 
 There is no test suite yet — that is Phase 12. Each phase so far has been validated by hand
 against a live Postgres and a production build; what was checked is recorded per phase in

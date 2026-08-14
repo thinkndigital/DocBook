@@ -9,14 +9,15 @@ representatives, platform admin). Jordan-first, built for GCC/international expa
 Original product — feature research only from public healthcare marketplaces, no shared
 branding/code/copy with any reference site.
 
-**Current status: Phases 1–10 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
+**Current status: Phases 1–11 of 14 delivered** (see `ROADMAP.md`). Working today: schema/
 auth/RBAC/tenant isolation, admin portal, clinic + doctor management, the appointment
 engine with its double-booking guarantee, the bilingual patient marketplace, the
 representative portal, payments/subscriptions/commissions, medical records &
 prescriptions, notifications/calendar, and the AI layer (symptom triage, patient assistant,
-clinic briefing, no-show risk). **Not built yet**: analytics (11), security hardening & the
-test suite (12), SEO/performance (13), deployment (14). Don't assume a later phase's feature
-exists just because `ROADMAP.md` describes its scope.
+clinic briefing, no-show risk), and role-scoped analytics with a generated OpenAPI document.
+**Not built yet**: security hardening & the test suite (12), SEO/performance (13),
+deployment (14). Don't assume a later phase's feature exists just because `ROADMAP.md`
+describes its scope.
 
 ## Commands
 
@@ -29,6 +30,7 @@ npx prisma generate         # regenerate Prisma client after schema.prisma chang
 npx prisma migrate dev --name <name>   # create + apply a new migration (needs a running DB)
 npx prisma migrate deploy   # apply existing migrations without prompting (CI/prod)
 npx prisma db seed          # run prisma/seed.ts
+npm run openapi             # regenerate public/openapi.json (fails if a route is undocumented)
 npx prisma validate         # schema syntax check (needs DATABASE_URL set, even to a dummy value)
 docker compose up -d db     # local Postgres 16 on :5432 (user/pass/db all "docbook")
 ```
@@ -136,6 +138,20 @@ returns its factors and sends nothing off-platform. Never widen
 and future `Doctor` column to the internet — which is how `calendarFeedToken` (a bearer
 credential for a doctor's private calendar feed) was exposed on `/api/v1/public/doctors`
 between Phase 9 and Phase 10.
+
+**Raw SQL in analytics is NOT tenant-scoped by the middleware.** `src/lib/analytics/series.ts`
+uses `$queryRaw` for `date_trunc` bucketing, which Prisma's `groupBy` can't express. The
+middleware rewrites structured `where` arguments and has nothing to rewrite in a raw query,
+so every function there takes an explicit `tenantId`, passes it as a **parameter** (never
+string concatenation), and callers must source it from the verified session. This is the
+only place isolation is manual — verified in Phase 11 with a second tenant whose doctor name
+and revenue appear in neither the first tenant's dashboard nor its CSV export.
+
+**The OpenAPI document is generated, and generation fails on drift.** `npm run openapi`
+(`scripts/generate-openapi.ts`) walks `src/app/api`, pulls request bodies from the real Zod
+schemas, and errors if a handler has no entry in `src/lib/openapi/registry.ts` or an entry
+has no handler. Add the registry entry when you add a route — don't hand-edit
+`public/openapi.json`.
 
 **Money is integer minor units** (`priceMinor`, `amountMinor` — fils/halalas), never
 floats, with a sibling `currency` column. **Country/city data is rows, not constants** —

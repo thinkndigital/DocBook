@@ -14,8 +14,8 @@ no phase ships stubs or fake data paths (§47).
 | 7 | Payments + subscriptions + commission engine (`PaymentProvider` interface, dev adapter, plan billing) | **Delivered** |
 | 8 | Medical records + prescriptions (encrypted attachments, signed URLs, PDF generation) | **Delivered** |
 | 9 | Notifications + WhatsApp + calendar sync (`NotificationProvider` interface, iCal feed) | **Delivered** |
-| 10 | AI layer (doctor discovery, patient assistant, clinic assistant, analytics — Claude-backed, with medical disclaimers) | Not started |
-| 11 | Analytics (KPIs, dashboards, OpenAPI docs) | Not started |
+| 10 | AI layer (doctor discovery, patient assistant, clinic assistant — Claude-backed, with medical disclaimers) | **Delivered** |
+| 11 | Analytics (KPIs, dashboards, OpenAPI docs) | **Delivered** |
 | 12 | Security hardening + QA (2FA, rate limiting, file validation, booking-conflict test suite) | Not started |
 | 13 | Performance + SEO (structured data, sitemaps, Core Web Vitals pass) | Not started |
 | 14 | Production deployment (CI/CD, backups, monitoring, chosen cloud target) | Not started |
@@ -324,7 +324,57 @@ rescales existing values; getting it wrong silently multiplies real prices by te
 a deliberate reviewed change, not a side effect of another phase. `src/lib/money.ts` now
 centralises the conversion so that migration edits one function.
 
+## Phase 11 — Analytics + OpenAPI (delivered)
+
+Role-scoped dashboards for all four roles (platform, clinic, doctor, representative), each
+with KPI tiles carrying period-over-period deltas, dense daily/monthly time series,
+breakdowns, a busiest-doctor table, a CSV export, and a generated OpenAPI document.
+
+Decisions worth knowing:
+
+- **Four separate query builders, not one parameterised function.** A single
+  `getAnalytics(role, scope)` would make tenant isolation a runtime branch, and a bug in
+  that branch shows one clinic another's revenue. The platform-wide query (`tenantId: null`)
+  is only reachable from a function that only the `SUPER_ADMIN` route calls.
+- **Raw SQL is used for date bucketing, and that bypasses the tenant middleware.** Prisma's
+  `groupBy` can't express `date_trunc`, and loading a year of rows into Node to bucket them
+  is worse. So `src/lib/analytics/series.ts` carries an explicit warning: every function
+  there takes a `tenantId` and passes it as a **parameter**, and callers must source it from
+  the verified session. This is the one place in the codebase where isolation is manual.
+- **Ranges are a closed preset set** (`7d`/`30d`/`90d`/`12m`), not arbitrary client dates —
+  bounded bucket counts, and no way to ask for a decade of daily points.
+- **Charts are server-rendered inline SVG, no charting library.** Recharts or Chart.js would
+  add hundreds of kilobytes and force these pages to be Client Components, for a polyline
+  and some rectangles. The trade — no tooltips or zoom — is covered by pairing every chart
+  with the KPI tiles, breakdown tables, and CSV export.
+- **The OpenAPI document is generated and self-policing.** `scripts/generate-openapi.ts`
+  walks `src/app/api`, takes request bodies from the **actual** Zod schemas, and **fails**
+  when a handler has no registry entry *or* a registry entry has no handler. It caught 12
+  undocumented handlers and 12 stale entries in my own first draft — including several
+  where I had assumed `POST` and the handler was `PATCH`. Response bodies are described by
+  status code and envelope only: no response Zod schemas exist, and approximating them
+  would produce a document that lies in a way nobody can check.
+
+Verified against a live Postgres and a production build:
+- **Cross-tenant isolation of the raw-SQL path**: a second tenant was created with a
+  distinctively-named doctor and a 7777.77 JOD payment. Tenant A's analytics and CSV export
+  contain neither; tenant B sees both and none of tenant A's doctors; the platform view
+  spans both. 30 automated checks in total.
+- Role scoping: patient, representative, and doctor all get 403 on tenant analytics; the
+  tenant admin gets 403 on platform analytics; each role's own endpoint returns 200.
+- Dense series: 7d/30d/90d/12m return exactly 7/30/90/12 buckets with zeros preserved, and
+  a hostile `?range=` value falls back to 30d rather than reaching SQL.
+- CSV: UTF-8 BOM (so Excel renders Arabic names rather than mojibake), CRLF, quote doubling,
+  and formula-injection neutralisation for `=`, `+`, `-`, `@` — 10 checks. Exports are
+  audited with a row count, never the content.
+- All 31 authenticated pages render, analytics pages included.
+
+Not built, deliberately: scheduled/emailed reports and materialised rollup tables. Both are
+premature — rollups optimise a query that is currently fast on real data volumes, and
+choosing when to denormalise without production numbers is guesswork.
+
 ## Immediate next step
 
-Phase 11 (analytics) — role-scoped dashboards and reporting over the data the previous
-phases now produce, plus generating the OpenAPI spec from the Zod schemas.
+Phase 12 (security hardening + QA) — 2FA, a shared rate limiter in front of the whole API,
+and the automated test suite, starting with the booking-conflict test that has so far been
+verified by hand each phase.
