@@ -54,13 +54,13 @@ export default async function DoctorsSearchPage({
       />
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">{dict.doctors.title}</h1>
 
-      <form className="mb-8 grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-4" method="get">
+      <form className="mb-8 grid grid-cols-1 gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-2 md:grid-cols-4" method="get">
         <input
           type="text"
           name="q"
           defaultValue={searchParams.q}
           placeholder={dict.common.search}
-          className="col-span-2 rounded-md border border-neutral-300 px-3 py-2 text-sm md:col-span-1"
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm sm:col-span-2 md:col-span-1"
         />
         <select name="specialty" defaultValue={searchParams.specialty ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
           <option value="">{dict.doctors.allSpecialties}</option>
@@ -83,7 +83,7 @@ export default async function DoctorsSearchPage({
           <option value="MALE">{dict.doctors.male}</option>
           <option value="FEMALE">{dict.doctors.female}</option>
         </select>
-        <button type="submit" className="col-span-2 rounded-md bg-brand-600 px-4 py-2 text-sm text-white md:col-span-4">
+        <button type="submit" className="rounded-md bg-brand-600 px-4 py-3 text-sm text-white sm:col-span-2 md:col-span-4 md:py-2">
           {dict.common.search}
         </button>
       </form>
@@ -91,7 +91,7 @@ export default async function DoctorsSearchPage({
       {doctors.length === 0 ? (
         <p className="text-neutral-500">{dict.doctors.noResults}</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {doctors.map((doctor) => (
             <Link
               key={doctor.id}

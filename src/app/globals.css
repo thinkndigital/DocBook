@@ -5,3 +5,31 @@
 html {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/*
+ * Last-resort guard against sideways page scroll.
+ *
+ * Wide content — data tables, the analytics charts — is meant to scroll inside its own
+ * container. When one is missed, the overflow escapes to the document instead and the whole
+ * page slides under the thumb: the header drifts off, tap targets move, and on an RTL layout
+ * it is especially disorienting because the page appears to start in the wrong place.
+ *
+ * This confines the damage to a clipped element rather than a broken page. It is a
+ * backstop, not permission to skip the per-element `overflow-x-auto`.
+ */
+body {
+  overflow-x: hidden;
+}
+
+/*
+ * Keep tap targets usable. iOS zooms the viewport when a focused input's text is under
+ * 16px, and it does not zoom back out — the user is left on a page wider than the screen
+ * after tapping a search box.
+ */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

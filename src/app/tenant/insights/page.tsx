@@ -96,43 +96,45 @@ export default async function TenantInsightsPage() {
         {briefing.highRisk.length === 0 ? (
           <p className="text-sm text-neutral-500">لا توجد مواعيد عالية الخطورة خلال الأيام السبعة القادمة.</p>
         ) : (
-          <table className="w-full text-right text-sm">
-            <thead>
-              <tr className="border-b border-neutral-200 text-xs text-neutral-500">
-                <th className="py-2 font-medium">المريض</th>
-                <th className="py-2 font-medium">الطبيب</th>
-                <th className="py-2 font-medium">الموعد</th>
-                <th className="py-2 font-medium">الدرجة</th>
-                <th className="py-2 font-medium">العوامل</th>
-              </tr>
-            </thead>
-            <tbody>
-              {briefing.highRisk.map((risk) => (
-                <tr key={risk.appointmentId} className="border-b border-neutral-100 align-top">
-                  <td className="py-2 text-neutral-900">{risk.patientName}</td>
-                  <td className="py-2 text-neutral-600">{risk.doctorName}</td>
-                  <td className="py-2 text-neutral-600">
-                    {risk.scheduledAt.toISOString().slice(0, 16).replace('T', ' ')}
-                  </td>
-                  <td className="py-2">
-                    <Badge tone={BAND_TONE[risk.band]}>
-                      {BAND_LABEL[risk.band]} · {risk.score}
-                    </Badge>
-                  </td>
-                  <td className="py-2 text-xs text-neutral-600">
-                    <ul className="space-y-1">
-                      {risk.factors.map((factor) => (
-                        <li key={factor.labelAr}>
-                          {factor.labelAr} ({factor.points > 0 ? '+' : ''}
-                          {factor.points})
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-xs text-neutral-500">
+                  <th className="py-2 font-medium">المريض</th>
+                  <th className="py-2 font-medium">الطبيب</th>
+                  <th className="py-2 font-medium">الموعد</th>
+                  <th className="py-2 font-medium">الدرجة</th>
+                  <th className="py-2 font-medium">العوامل</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {briefing.highRisk.map((risk) => (
+                  <tr key={risk.appointmentId} className="border-b border-neutral-100 align-top">
+                    <td className="py-2 text-neutral-900">{risk.patientName}</td>
+                    <td className="py-2 text-neutral-600">{risk.doctorName}</td>
+                    <td className="py-2 text-neutral-600">
+                      {risk.scheduledAt.toISOString().slice(0, 16).replace('T', ' ')}
+                    </td>
+                    <td className="py-2">
+                      <Badge tone={BAND_TONE[risk.band]}>
+                        {BAND_LABEL[risk.band]} · {risk.score}
+                      </Badge>
+                    </td>
+                    <td className="py-2 text-xs text-neutral-600">
+                      <ul className="space-y-1">
+                        {risk.factors.map((factor) => (
+                          <li key={factor.labelAr}>
+                            {factor.labelAr} ({factor.points > 0 ? '+' : ''}
+                            {factor.points})
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

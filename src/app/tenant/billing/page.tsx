@@ -72,26 +72,28 @@ export default async function TenantBillingPage() {
         {commissions.length === 0 ? (
           <p className="text-sm text-neutral-500">لا توجد عمولات محتسبة بعد.</p>
         ) : (
-          <table className="w-full text-right text-sm">
-            <thead className="text-neutral-600">
-              <tr>
-                <th className="py-2 font-medium">الجهة المستفيدة</th>
-                <th className="py-2 font-medium">المبلغ</th>
-                <th className="py-2 font-medium">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commissions.slice(0, 20).map((c) => (
-                <tr key={c.id} className="border-t border-neutral-100">
-                  <td className="py-2">{ENTITY_LABEL[c.entityType] ?? c.entityType}</td>
-                  <td className="py-2">
-                    {(c.amountMinor / 100).toFixed(2)} {c.currency}
-                  </td>
-                  <td className="py-2 text-neutral-500">{c.status}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="text-neutral-600">
+                <tr>
+                  <th className="py-2 font-medium">الجهة المستفيدة</th>
+                  <th className="py-2 font-medium">المبلغ</th>
+                  <th className="py-2 font-medium">الحالة</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {commissions.slice(0, 20).map((c) => (
+                  <tr key={c.id} className="border-t border-neutral-100">
+                    <td className="py-2">{ENTITY_LABEL[c.entityType] ?? c.entityType}</td>
+                    <td className="py-2">
+                      {(c.amountMinor / 100).toFixed(2)} {c.currency}
+                    </td>
+                    <td className="py-2 text-neutral-500">{c.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -100,30 +102,32 @@ export default async function TenantBillingPage() {
         {payments.length === 0 ? (
           <p className="text-sm text-neutral-500">لا توجد مدفوعات بعد.</p>
         ) : (
-          <table className="w-full text-right text-sm">
-            <thead className="text-neutral-600">
-              <tr>
-                <th className="py-2 font-medium">المبلغ</th>
-                <th className="py-2 font-medium">الطريقة</th>
-                <th className="py-2 font-medium">المزوّد</th>
-                <th className="py-2 font-medium">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} className="border-t border-neutral-100">
-                  <td className="py-2">
-                    {(p.amountMinor / 100).toFixed(2)} {p.currency}
-                  </td>
-                  <td className="py-2 text-neutral-600">{p.method}</td>
-                  <td className="py-2 text-neutral-500">{p.provider}</td>
-                  <td className="py-2">
-                    <Badge tone={PAYMENT_TONE[p.status]}>{p.status}</Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="text-neutral-600">
+                <tr>
+                  <th className="py-2 font-medium">المبلغ</th>
+                  <th className="py-2 font-medium">الطريقة</th>
+                  <th className="py-2 font-medium">المزوّد</th>
+                  <th className="py-2 font-medium">الحالة</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="border-t border-neutral-100">
+                    <td className="py-2">
+                      {(p.amountMinor / 100).toFixed(2)} {p.currency}
+                    </td>
+                    <td className="py-2 text-neutral-600">{p.method}</td>
+                    <td className="py-2 text-neutral-500">{p.provider}</td>
+                    <td className="py-2">
+                      <Badge tone={PAYMENT_TONE[p.status]}>{p.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

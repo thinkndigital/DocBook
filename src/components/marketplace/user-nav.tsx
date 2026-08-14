@@ -23,7 +23,7 @@ import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
 export function UserNav({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const { status, data } = useSession();
 
-  const linkClass = 'text-neutral-700 hover:text-brand-700';
+  const linkClass = 'whitespace-nowrap text-neutral-700 hover:text-brand-700';
 
   if (status === 'loading') {
     // Reserves roughly the width the resolved links occupy, so the header does not jump.

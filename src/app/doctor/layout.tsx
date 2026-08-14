@@ -18,24 +18,24 @@ export default async function DoctorLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <nav className="flex gap-4 border-b border-neutral-200 bg-white px-8 py-3 text-sm">
-        <Link href="/doctor" className="text-neutral-700 hover:text-brand-700">
+      <nav className="flex gap-4 overflow-x-auto border-b border-neutral-200 bg-white px-4 py-3 text-sm md:px-8">
+        <Link href="/doctor" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           الملف الشخصي
         </Link>
-        <Link href="/doctor/appointments" className="text-neutral-700 hover:text-brand-700">
+        <Link href="/doctor/appointments" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           مواعيد اليوم
         </Link>
-        <Link href="/doctor/patients" className="text-neutral-700 hover:text-brand-700">
+        <Link href="/doctor/patients" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           مرضاي
         </Link>
-        <Link href="/doctor/calendar" className="text-neutral-700 hover:text-brand-700">
+        <Link href="/doctor/calendar" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           مزامنة التقويم
         </Link>
-        <Link href="/doctor/analytics" className="text-neutral-700 hover:text-brand-700">
+        <Link href="/doctor/analytics" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           أدائي
         </Link>
       </nav>
-      <div className="p-8">{children}</div>
+      <div className="p-4 md:p-8">{children}</div>
     </div>
   );
 }

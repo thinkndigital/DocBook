@@ -33,30 +33,32 @@ export default async function CommissionRulesPage() {
         {rules.length === 0 ? (
           <p className="text-sm text-neutral-500">لا توجد قواعد بعد.</p>
         ) : (
-          <table className="w-full text-right text-sm">
-            <thead className="text-neutral-600">
-              <tr>
-                <th className="py-2 font-medium">الجهة المستفيدة</th>
-                <th className="py-2 font-medium">النطاق</th>
-                <th className="py-2 font-medium">القيمة</th>
-                <th className="py-2 font-medium">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule) => (
-                <tr key={rule.id} className="border-t border-neutral-100">
-                  <td className="py-2">{ENTITY_LABEL[rule.entityType] ?? rule.entityType}</td>
-                  <td className="py-2 text-neutral-600">{rule.tenant?.nameAr ?? 'عامة'}</td>
-                  <td className="py-2 text-neutral-600">
-                    {rule.percentage !== null ? `${rule.percentage}%` : `${((rule.flatAmountMinor ?? 0) / 100).toFixed(2)} JOD`}
-                  </td>
-                  <td className="py-2">
-                    <Badge tone={rule.isActive ? 'success' : 'neutral'}>{rule.isActive ? 'مفعّلة' : 'معطّلة'}</Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="text-neutral-600">
+                <tr>
+                  <th className="py-2 font-medium">الجهة المستفيدة</th>
+                  <th className="py-2 font-medium">النطاق</th>
+                  <th className="py-2 font-medium">القيمة</th>
+                  <th className="py-2 font-medium">الحالة</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rules.map((rule) => (
+                  <tr key={rule.id} className="border-t border-neutral-100">
+                    <td className="py-2">{ENTITY_LABEL[rule.entityType] ?? rule.entityType}</td>
+                    <td className="py-2 text-neutral-600">{rule.tenant?.nameAr ?? 'عامة'}</td>
+                    <td className="py-2 text-neutral-600">
+                      {rule.percentage !== null ? `${rule.percentage}%` : `${((rule.flatAmountMinor ?? 0) / 100).toFixed(2)} JOD`}
+                    </td>
+                    <td className="py-2">
+                      <Badge tone={rule.isActive ? 'success' : 'neutral'}>{rule.isActive ? 'مفعّلة' : 'معطّلة'}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

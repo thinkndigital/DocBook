@@ -39,32 +39,34 @@ export default async function RepCommissionsPage() {
         {commissions.length === 0 ? (
           <p className="text-sm text-neutral-500">لا توجد عمولات بعد — تُحتسب العمولة عند تحصيل قيمة الحجز.</p>
         ) : (
-          <table className="w-full text-right text-sm">
-            <thead className="text-neutral-600">
-              <tr>
-                <th className="py-2 font-medium">المريض</th>
-                <th className="py-2 font-medium">الطبيب</th>
-                <th className="py-2 font-medium">قيمة الحجز</th>
-                <th className="py-2 font-medium">العمولة</th>
-                <th className="py-2 font-medium">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commissions.map((c) => (
-                <tr key={c.id} className="border-t border-neutral-100">
-                  <td className="py-2">{c.appointment.patient.user.name}</td>
-                  <td className="py-2 text-neutral-600">{c.appointment.doctor.user.name}</td>
-                  <td className="py-2 text-neutral-600">{(c.appointment.priceMinor / 100).toFixed(2)}</td>
-                  <td className="py-2 font-medium text-brand-700">
-                    {(c.amountMinor / 100).toFixed(2)} {c.currency}
-                  </td>
-                  <td className="py-2">
-                    <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="text-neutral-600">
+                <tr>
+                  <th className="py-2 font-medium">المريض</th>
+                  <th className="py-2 font-medium">الطبيب</th>
+                  <th className="py-2 font-medium">قيمة الحجز</th>
+                  <th className="py-2 font-medium">العمولة</th>
+                  <th className="py-2 font-medium">الحالة</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {commissions.map((c) => (
+                  <tr key={c.id} className="border-t border-neutral-100">
+                    <td className="py-2">{c.appointment.patient.user.name}</td>
+                    <td className="py-2 text-neutral-600">{c.appointment.doctor.user.name}</td>
+                    <td className="py-2 text-neutral-600">{(c.appointment.priceMinor / 100).toFixed(2)}</td>
+                    <td className="py-2 font-medium text-brand-700">
+                      {(c.amountMinor / 100).toFixed(2)} {c.currency}
+                    </td>
+                    <td className="py-2">
+                      <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

@@ -79,83 +79,85 @@ export function ScheduleEditor({ doctorId, branches, initialSchedule }: Props) {
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-4">
-      <table className="w-full text-right text-sm">
-        <thead className="text-neutral-600">
-          <tr>
-            <th className="py-2 font-medium">اليوم</th>
-            <th className="py-2 font-medium">الفرع</th>
-            <th className="py-2 font-medium">من</th>
-            <th className="py-2 font-medium">إلى</th>
-            <th className="py-2 font-medium">مدة الموعد (د)</th>
-            <th className="py-2 font-medium">فاصل (د)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.dayOfWeek} className="border-t border-neutral-100">
-              <td className="py-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={row.isActive}
-                    onChange={(e) => updateRow(row.dayOfWeek, { isActive: e.target.checked })}
-                  />
-                  {DAY_LABELS[row.dayOfWeek]}
-                </label>
-              </td>
-              <td className="py-2">
-                <Select
-                  value={row.branchId}
-                  disabled={!row.isActive}
-                  onChange={(e) => updateRow(row.dayOfWeek, { branchId: e.target.value })}
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </td>
-              <td className="py-2">
-                <Input
-                  type="time"
-                  value={row.startTime}
-                  disabled={!row.isActive}
-                  onChange={(e) => updateRow(row.dayOfWeek, { startTime: e.target.value })}
-                />
-              </td>
-              <td className="py-2">
-                <Input
-                  type="time"
-                  value={row.endTime}
-                  disabled={!row.isActive}
-                  onChange={(e) => updateRow(row.dayOfWeek, { endTime: e.target.value })}
-                />
-              </td>
-              <td className="py-2">
-                <Input
-                  type="number"
-                  min={5}
-                  max={240}
-                  value={row.slotDurationMinutes}
-                  disabled={!row.isActive}
-                  onChange={(e) => updateRow(row.dayOfWeek, { slotDurationMinutes: Number(e.target.value) })}
-                />
-              </td>
-              <td className="py-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={row.bufferMinutes}
-                  disabled={!row.isActive}
-                  onChange={(e) => updateRow(row.dayOfWeek, { bufferMinutes: Number(e.target.value) })}
-                />
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-right text-sm">
+          <thead className="text-neutral-600">
+            <tr>
+              <th className="py-2 font-medium">اليوم</th>
+              <th className="py-2 font-medium">الفرع</th>
+              <th className="py-2 font-medium">من</th>
+              <th className="py-2 font-medium">إلى</th>
+              <th className="py-2 font-medium">مدة الموعد (د)</th>
+              <th className="py-2 font-medium">فاصل (د)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.dayOfWeek} className="border-t border-neutral-100">
+                <td className="py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={row.isActive}
+                      onChange={(e) => updateRow(row.dayOfWeek, { isActive: e.target.checked })}
+                    />
+                    {DAY_LABELS[row.dayOfWeek]}
+                  </label>
+                </td>
+                <td className="py-2">
+                  <Select
+                    value={row.branchId}
+                    disabled={!row.isActive}
+                    onChange={(e) => updateRow(row.dayOfWeek, { branchId: e.target.value })}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </Select>
+                </td>
+                <td className="py-2">
+                  <Input
+                    type="time"
+                    value={row.startTime}
+                    disabled={!row.isActive}
+                    onChange={(e) => updateRow(row.dayOfWeek, { startTime: e.target.value })}
+                  />
+                </td>
+                <td className="py-2">
+                  <Input
+                    type="time"
+                    value={row.endTime}
+                    disabled={!row.isActive}
+                    onChange={(e) => updateRow(row.dayOfWeek, { endTime: e.target.value })}
+                  />
+                </td>
+                <td className="py-2">
+                  <Input
+                    type="number"
+                    min={5}
+                    max={240}
+                    value={row.slotDurationMinutes}
+                    disabled={!row.isActive}
+                    onChange={(e) => updateRow(row.dayOfWeek, { slotDurationMinutes: Number(e.target.value) })}
+                  />
+                </td>
+                <td className="py-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={row.bufferMinutes}
+                    disabled={!row.isActive}
+                    onChange={(e) => updateRow(row.dayOfWeek, { bufferMinutes: Number(e.target.value) })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {saved && !error && <p className="mt-3 text-sm text-emerald-700">تم الحفظ.</p>}
       <Button className="mt-4" disabled={submitting || branches.length === 0} onClick={handleSave}>

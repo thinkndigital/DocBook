@@ -56,25 +56,25 @@ export default function LocaleLayout({
     <div dir={locale === 'ar' ? 'rtl' : 'ltr'} lang={locale} className="min-h-screen bg-neutral-50">
       <JsonLd data={[organizationJsonLd(locale), webSiteJsonLd(locale)]} />
       <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <Link href={`/${locale}`} className="text-lg font-bold text-brand-700">
             DocBook
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href={`/${locale}/doctors`} className="text-neutral-700 hover:text-brand-700">
+          <nav className="-mx-4 flex items-center gap-4 overflow-x-auto px-4 text-sm sm:mx-0 sm:overflow-visible sm:px-0">
+            <Link href={`/${locale}/doctors`} className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
               {dict.nav.doctors}
             </Link>
-            <Link href={`/${locale}/symptom-check`} className="text-neutral-700 hover:text-brand-700">
+            <Link href={`/${locale}/symptom-check`} className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
               {dict.symptomCheck.navLabel}
             </Link>
             <UserNav locale={locale} dict={dict} />
-            <Link href={`/${otherLocale}`} className="text-neutral-400 hover:text-brand-700">
+            <Link href={`/${otherLocale}`} className="whitespace-nowrap text-neutral-400 hover:text-brand-700">
               {otherLocale === 'ar' ? 'العربية' : 'English'}
             </Link>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </div>
   );
 }
