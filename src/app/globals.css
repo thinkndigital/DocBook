@@ -9,16 +9,17 @@ html {
 /*
  * Last-resort guard against sideways page scroll.
  *
- * Wide content — data tables, the analytics charts — is meant to scroll inside its own
- * container. When one is missed, the overflow escapes to the document instead and the whole
- * page slides under the thumb: the header drifts off, tap targets move, and on an RTL layout
- * it is especially disorienting because the page appears to start in the wrong place.
+ * `clip`, not `hidden`, and on `html` rather than `body`. The difference is not cosmetic:
+ * `overflow-x: hidden` makes the element a scroll *container*, which on mobile broke
+ * vertical scrolling outright — the page would move once and then refuse to come back —
+ * and silently disabled `position: sticky` for everything inside it. `clip` trims the
+ * overflow without creating a scroll container, so scrolling and sticky both keep working.
  *
- * This confines the damage to a clipped element rather than a broken page. It is a
- * backstop, not permission to skip the per-element `overflow-x-auto`.
+ * This is a backstop for a missed wrapper, not permission to skip the per-element
+ * `overflow-x-auto`: it clips content rather than letting it scroll into view.
  */
-body {
-  overflow-x: hidden;
+html {
+  overflow-x: clip;
 }
 
 /*

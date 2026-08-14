@@ -55,7 +55,7 @@ export default function LocaleLayout({
   return (
     <div dir={locale === 'ar' ? 'rtl' : 'ltr'} lang={locale} className="min-h-screen bg-neutral-50">
       <JsonLd data={[organizationJsonLd(locale), webSiteJsonLd(locale)]} />
-      <header className="border-b border-neutral-200 bg-white">
+      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <Link href={`/${locale}`} className="text-lg font-bold text-brand-700">
             DocBook
