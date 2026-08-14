@@ -93,8 +93,9 @@ openssl rand -base64 32 | firebase apphosting:secrets:set NEXTAUTH_SECRET \
 openssl rand -base64 32 | firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY \
   --project studio-4511819966-bc14f --data-file - --force
 firebase apphosting:secrets:set DATABASE_URL --project studio-4511819966-bc14f --force
-``` Set `NEXTAUTH_URL` in
-`apphosting.yaml` to the backend's exact public URL — NextAuth builds callback URLs from it,
+```
+
+Set `NEXTAUTH_URL` in `apphosting.yaml` to the backend's exact public URL — NextAuth builds callback URLs from it,
 and a mismatch produces a login loop that presents as "the password is wrong".
 
 **`FIELD_ENCRYPTION_KEY` is effectively permanent.** It decrypts every stored diagnosis,
