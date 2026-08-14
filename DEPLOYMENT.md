@@ -122,49 +122,45 @@ Alternatives: **Supabase** (same shape, also free), or **Cloud SQL** if you want
 database inside the same GCP project — it bills from the first hour and needs VPC egress or
 a public IP with SSL, so it is the slower start.
 
-### Why there are two connection strings
+### One connection string
 
-`prisma/schema.prisma` declares both `url` and `directUrl`:
+Use Neon's **direct** string — in the Connect dialog, turn **off** "Connection pooling". The
+same value serves both the app and its migrations; `DIRECT_DATABASE_URL` is set from it
+wherever the Prisma CLI runs.
 
-| Variable | Used by | Which endpoint |
-|---|---|---|
-| `DATABASE_URL` | the running app | **pooled** (PgBouncer) |
-| `DIRECT_DATABASE_URL` | `prisma migrate`, `prisma db seed` | **direct** |
+That is correct at this scale: `apphosting.yaml` caps the backend at two instances, so
+direct connections sit comfortably inside what Neon allows.
 
-The app runs across several App Hosting instances, each holding its own Prisma connection
-pool, so it needs the pooled endpoint or a small Postgres runs out of connections.
-Migrations cannot use that endpoint: they take a **session-level advisory lock** to stop two
-deploys racing, and transaction pooling does not preserve session state, so the lock ends up
-on a different backend from one statement to the next. The symptom is a migration that hangs
-or fails with a lock error that reads like a database problem rather than a routing one.
+**When to split them.** Once `maxInstances` grows, each instance holds its own Prisma
+connection pool and a small Postgres runs out of connections. At that point point
+`DATABASE_URL` at the pooled endpoint and keep `DIRECT_DATABASE_URL` on the direct one —
+`prisma/schema.prisma` already declares `directUrl`, so that is a config change, not a code
+change.
 
-`DIRECT_DATABASE_URL` is a **Prisma CLI variable only** — verified: the app queries fine
-with it unset. It therefore does not belong in `apphosting.yaml`, only in your shell and in
-CI. For a plain single Postgres (local, Cloud SQL) set both to the same value.
+Migrations must never run through the pooled endpoint. They take a session-level advisory
+lock that PgBouncer's transaction pooling cannot hold, so they hang or fail with a lock
+error that reads like a database fault rather than a wrong-endpoint mistake. Both the setup
+script and the migration workflow refuse a URL containing `-pooler` for exactly that reason.
 
 ### Applying migrations without a local machine
 
-You do **not** need Postgres installed anywhere. Neon is the database; the only local
-requirement was ever the one-off `prisma migrate deploy`, and
-`.github/workflows/migrate.yml` removes that too.
+Postgres does not need to be installed anywhere — Neon is the database — and Prisma is a
+library inside the app, not a service you run. The only local step was ever the one-off
+`prisma migrate deploy`, and `.github/workflows/migrate.yml` removes that too.
 
-1. Add a repository secret `DIRECT_DATABASE_URL` (GitHub → Settings → Secrets and variables
-   → Actions). Use Neon's **direct** string — the one *without* `-pooler` in the hostname.
-2. Actions → **Apply database migrations** → Run workflow → `status` first (read-only, shows
-   what is applied), then `deploy`.
+1. Add a repository secret `DATABASE_URL` (GitHub → Settings → Secrets and variables →
+   Actions) with the Neon connection string.
+2. Actions → **Apply database migrations** → Run workflow.
 
-It is **manual only, by design.** Auto-migrating on every push puts a schema change into
-production the moment someone merges, with no window to catch a mistake, and not every
-migration is reversible. A human pressing the button is the right amount of ceremony for a
-schema change to a healthcare database.
+Tick *dry run* first to see the current state without changing anything.
 
-Two guards are built in: write actions require typing the database name, and the job refuses
-to run if the supplied URL contains `-pooler` — migrations through the pooled endpoint hang
-on an advisory lock that transaction pooling cannot hold, and the resulting error reads like
-a database fault rather than a wrong-endpoint mistake.
+Manual by design: auto-migrating on push sends a schema change to production the moment
+someone merges, with no window to catch a mistake, and not every migration is reversible.
 
-The `seed` option inserts demo accounts with a well-known password. It exists for a fresh
-demo environment and must never be run against real patient data.
+Seeding is deliberately **not** in this workflow. `npx prisma db seed` creates demo accounts
+with a well-known password, and that has no business sitting one click away from a database
+that may hold real patient records; run it by hand against a demo environment only.
+
 
 ### Three things App Hosting does not give you
 
