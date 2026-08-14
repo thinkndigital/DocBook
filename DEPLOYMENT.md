@@ -85,6 +85,63 @@ warns if `--force` has appended duplicate entries to `apphosting.yaml`.
 It is safe to re-run: setting a secret adds a new *version* rather than failing, and App
 Hosting reads the latest on the next rollout.
 
+### Same setup with no terminal on your machine (Cloud Shell)
+
+`firebase login` needs a browser anyway, so if you have no local terminal — or don't want
+to install Node just for three secrets — do the whole thing inside Google Cloud Shell.
+
+Open **shell.cloud.google.com**. It is a real Linux shell in a browser tab, already signed
+in as your Google account, with `gcloud` and `openssl` present. Nothing is installed on your
+own machine and there is no `firebase login` step: Cloud Shell is already authenticated.
+
+```bash
+gcloud config set project studio-4511819966-bc14f
+gcloud services enable secretmanager.googleapis.com
+
+# The two generated keys. `--data-file=-` reads from stdin, so the value is never a command
+# argument and never lands in shell history.
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets create NEXTAUTH_SECRET      --data-file=-
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets create FIELD_ENCRYPTION_KEY --data-file=-
+
+# The connection string. `read -rs` hides it as you paste.
+read -rs DBURL
+printf '%s' "$DBURL" | gcloud secrets create DATABASE_URL --data-file=-
+unset DBURL
+```
+
+Use `gcloud secrets versions add <NAME> --data-file=-` instead of `create` if the secret
+already exists.
+
+`gcloud` does **not** do what `firebase apphosting:secrets:set --force` does: grant the
+backend permission to read them. Without this the rollout fails exactly as if the secrets
+were missing.
+
+```bash
+SA="$(gcloud iam service-accounts list --format='value(email)' \
+      | grep -E 'app-hosting|apphosting' | head -1)"
+echo "$SA"   # expect firebase-app-hosting-compute@studio-4511819966-bc14f.iam.gserviceaccount.com
+
+for S in NEXTAUTH_SECRET FIELD_ENCRYPTION_KEY DATABASE_URL; do
+  gcloud secrets add-iam-policy-binding "$S" \
+    --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
+done
+```
+
+If `echo "$SA"` prints nothing, the backend has not been created yet — create it in the
+App Hosting console first, then re-run the loop.
+
+Then back up `FIELD_ENCRYPTION_KEY` somewhere separate from the database, because nothing
+else can recover it:
+
+```bash
+gcloud secrets versions access latest --secret=FIELD_ENCRYPTION_KEY
+```
+
+The pure-console alternative (Secret Manager → **Create secret** ×3, then **Permissions** →
+grant *Secret Manager Secret Accessor* to the App Hosting service account on each) reaches
+the same end state, but it puts the two keys through your clipboard and the browser, which
+the stdin path above avoids.
+
 Equivalent by hand:
 
 ```bash
