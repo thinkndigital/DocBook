@@ -72,13 +72,28 @@ failure — a *deploy* failure, not a build failure.
 ### One-time setup
 
 ```bash
-# Secrets live in Google Secret Manager; this command also grants the backend access.
-firebase apphosting:secrets:set DATABASE_URL         --project studio-4511819966-bc14f
-firebase apphosting:secrets:set NEXTAUTH_SECRET      --project studio-4511819966-bc14f
-firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY --project studio-4511819966-bc14f
+firebase login                    # required: creating production secrets needs your credentials
+./scripts/setup-apphosting.sh
 ```
 
-Generate the two key values with `openssl rand -base64 32`. Set `NEXTAUTH_URL` in
+The script generates `NEXTAUTH_SECRET` and `FIELD_ENCRYPTION_KEY` and pipes them into Secret
+Manager over stdin (`--data-file -`), so the values never appear as command arguments — where
+`ps` and shell history would capture them — never touch disk, and are never printed. It then
+prompts for `DATABASE_URL` with hidden input, offers to run `prisma migrate deploy`, and
+warns if `--force` has appended duplicate entries to `apphosting.yaml`.
+
+It is safe to re-run: setting a secret adds a new *version* rather than failing, and App
+Hosting reads the latest on the next rollout.
+
+Equivalent by hand:
+
+```bash
+openssl rand -base64 32 | firebase apphosting:secrets:set NEXTAUTH_SECRET \
+  --project studio-4511819966-bc14f --data-file - --force
+openssl rand -base64 32 | firebase apphosting:secrets:set FIELD_ENCRYPTION_KEY \
+  --project studio-4511819966-bc14f --data-file - --force
+firebase apphosting:secrets:set DATABASE_URL --project studio-4511819966-bc14f --force
+``` Set `NEXTAUTH_URL` in
 `apphosting.yaml` to the backend's exact public URL — NextAuth builds callback URLs from it,
 and a mismatch produces a login loop that presents as "the password is wrong".
 
