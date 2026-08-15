@@ -10,6 +10,10 @@ name: Demo data
 #     at dispatch time, same trust model as bootstrap.yml's `promote_email` input (visible
 #     only to repo collaborators who can trigger this workflow) — hashed like any real
 #     password. There is no repo-committed equivalent of DEFAULT_ASSIGNED_PASSWORD here.
+#     The "Mask password" step below is load-bearing, not optional: workflow_dispatch string
+#     inputs are not auto-masked by GitHub the way `secrets.*` values are, so without that
+#     `::add-mask::` call this input prints in cleartext in every step's env: log dump — on
+#     a public repo, that's the whole internet. It must stay the first step after checkout.
 #   - Every demo account's email ends in @docbook-demo.test (a reserved, non-resolving TLD)
 #     and the demo tenant/doctor are left unverified/unreviewed on purpose, so none of it
 #     ever appears in public search or the home page — see scripts/demo-data.ts for why.
@@ -41,6 +45,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # workflow_dispatch string inputs are NOT registered secrets — GitHub only auto-masks
+      # values sourced from `secrets.*`. Without this, demo_password prints in cleartext in
+      # every step's "env:" log dump (this repo is public, so that means the whole internet).
+      # Must run before any step's env: block references the input.
+      - name: Mask password
+        if: ${{ inputs.demo_password != '' }}
+        run: echo "::add-mask::${{ inputs.demo_password }}"
 
       - uses: actions/setup-node@v4
         with:
