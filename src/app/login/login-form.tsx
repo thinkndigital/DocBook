@@ -83,6 +83,12 @@ export function LoginForm() {
           نسيت كلمة السر؟
         </a>
       </p>
+      <p className="mt-2 text-center text-sm text-neutral-600">
+        ليس لديك حساب؟{' '}
+        <a href="/ar/register" className="text-brand-700 hover:underline">
+          سجّل كطبيب أو كعيادة أو مستشفى
+        </a>
+      </p>
     </Card>
   );
 }

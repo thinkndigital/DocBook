@@ -6,14 +6,19 @@ import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { createDoctorSchema, updateDoctorSchema } from '@/lib/validation/tenant';
 import type { verifyDoctorSchema } from '@/lib/validation/doctor';
+import type { selfRegisterDoctorSchema } from '@/lib/validation/self-register';
 import { normalizeEmail } from '@/lib/validation/common';
+import { findTenantByInviteCode } from '@/lib/services/tenants';
+import bcrypt from 'bcryptjs';
 
 type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
 type UpdateDoctorInput = z.infer<typeof updateDoctorSchema>;
 type VerifyDoctorInput = z.infer<typeof verifyDoctorSchema>;
+type SelfRegisterDoctorInput = z.infer<typeof selfRegisterDoctorSchema>;
 
 export class DoctorConflictError extends Error {}
 export class InvalidBranchError extends Error {}
+export class InvalidInviteCodeError extends Error {}
 
 const DOCTOR_INCLUDE = {
   user: { select: { id: true, name: true, email: true, status: true } },
@@ -87,6 +92,118 @@ export async function createDoctor(input: CreateDoctorInput, actor: SessionUser 
     entityType: 'Doctor',
     entityId: doctor.id,
     afterState: { specialtyId: doctor.specialtyId, licenseNumber: doctor.licenseNumber },
+  });
+
+  return doctor;
+}
+
+/**
+ * A doctor registering themselves, with no tenant-admin in the loop. Exactly one of two
+ * paths, enforced by the Zod schema (`selfRegisterDoctorSchema`):
+ *
+ *  - `inviteCode` + `branchId`: joins a real clinic the doctor already works at. The code
+ *    is looked up the same way the public "which clinic is this" endpoint does, so a stale
+ *    or suspended tenant is rejected here too, not just at display time.
+ *  - `newClinic`: the doctor has no clinic yet, so one is created for them — a
+ *    `TenantType.INDEPENDENT_DOCTOR` tenant with a single branch — and they become that
+ *    tenant's only doctor. This is the schema's own intended shape for a solo practice, not
+ *    a workaround: `Doctor.tenantId` is required (every doctor belongs to *some* tenant),
+ *    and this is how a doctor with no clinic satisfies that without an admin's involvement.
+ *
+ * Either way `verificationStatus` stays at its default (`PENDING`) — identical to a doctor
+ * a TENANT_ADMIN creates today. Login and the /doctor dashboard are never gated on
+ * verification (only SUSPENDED tenants block login, see auth.ts); `verified` only gates
+ * whether the profile is searchable in the public marketplace. An admin still reviews it at
+ * /admin/doctors before patients can find them there.
+ */
+export async function selfRegisterDoctor(input: SelfRegisterDoctorInput) {
+  const email = normalizeEmail(input.email);
+  const existingUser = await db.user.findUnique({ where: { email } });
+  if (existingUser) throw new DoctorConflictError(`A user with email ${email} already exists.`);
+
+  const passwordHash = await bcrypt.hash(input.password, 12);
+
+  let tenantId: string;
+  let branchId: string;
+  let newTenant: { id: string; name: string } | null = null;
+
+  if (input.inviteCode) {
+    const tenant = await findTenantByInviteCode(input.inviteCode);
+    if (!tenant) throw new InvalidInviteCodeError('Invalid or expired invite code.');
+    const branch = tenant.branches.find((b) => b.id === input.branchId);
+    if (!branch) throw new InvalidBranchError('That branch does not belong to this clinic.');
+    tenantId = tenant.id;
+    branchId = branch.id;
+  } else {
+    // input.newClinic — the schema guarantees exactly one of the two is present.
+    const clinic = input.newClinic!;
+    const created = await db.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          type: 'INDEPENDENT_DOCTOR',
+          name: clinic.name,
+          nameAr: clinic.nameAr,
+          countryId: clinic.countryId,
+          status: 'PENDING_VERIFICATION',
+          inviteCode: null,
+        },
+      });
+      const branch = await tx.branch.create({
+        data: {
+          tenantId: tenant.id,
+          name: clinic.branchName,
+          address: clinic.branchAddress,
+          cityId: clinic.cityId,
+          phone: clinic.branchPhone,
+          openingHours: {},
+        },
+      });
+      return { tenant, branch };
+    });
+    tenantId = created.tenant.id;
+    branchId = created.branch.id;
+    newTenant = { id: created.tenant.id, name: created.tenant.name };
+  }
+
+  const doctor = await db.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        tenantId,
+        email,
+        passwordHash,
+        role: 'DOCTOR',
+        name: input.name,
+        nameAr: input.nameAr,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      },
+    });
+
+    return tx.doctor.create({
+      data: {
+        userId: user.id,
+        tenantId,
+        specialtyId: input.specialtyId,
+        licenseNumber: input.licenseNumber,
+        yearsExperience: input.yearsExperience,
+        gender: input.gender,
+        languages: input.languages,
+        consultationPriceMinor: input.consultationPriceMinor,
+        bio: input.bio,
+        bioAr: input.bioAr,
+        branches: { create: [{ branchId }] },
+      },
+      include: DOCTOR_INCLUDE,
+    });
+  });
+
+  await recordAudit({
+    actorUserId: doctor.userId,
+    tenantId,
+    action: 'DOCTOR_SELF_REGISTERED',
+    entityType: 'Doctor',
+    entityId: doctor.id,
+    afterState: { viaInviteCode: !!input.inviteCode, newTenant: newTenant?.id ?? null },
   });
 
   return doctor;

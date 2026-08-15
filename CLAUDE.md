@@ -291,6 +291,33 @@ the only write path to `AuditLog`, there is no update/delete exposed anywhere. N
 medical record *content* into `beforeState`/`afterState` — only that an access/change
 occurred (see `SECURITY.md`).
 
+**Doctors and clinics can self-register — no admin in the loop, unlike the original
+apply-then-approve model.** `/[locale]/register` has a role tab (patient/doctor/clinic) on
+top of the existing patient flow, backed by two new public routes:
+`POST /api/v1/auth/register-tenant` (`selfRegisterTenant` in `tenants.ts` — creates the
+`Tenant` + its first `Branch` + a `TENANT_ADMIN` login, own chosen password, in one
+transaction) and `POST /api/v1/auth/register-doctor` (`selfRegisterDoctor` in `doctors.ts`
+— either joins a real clinic via invite code or creates a solo `TenantType.INDEPENDENT_DOCTOR`
+tenant, since `Doctor.tenantId` is required and every doctor needs *some* tenant to belong
+to). Both leave `Tenant.status` at `PENDING_VERIFICATION` and `Doctor.verificationStatus` at
+`PENDING` — identical to what an admin/tenant-admin creating the same records gets today —
+because neither gates login, only `SUSPENDED` tenants block sign-in (auth.ts) and `verified`
+only gates public marketplace search. An admin still reviews doctors at `/admin/doctors`
+before patients can find them there.
+
+**`Tenant.inviteCode` is how a doctor joins a *real* clinic instead of always spinning up a
+solo practice.** The column existed in the schema from Phase 1 but nothing ever set it until
+this pass. `createTenant`/`selfRegisterTenant` generate one at creation
+(`uniqueInviteCode()` in `tenants.ts`, an 8-char code from an ambiguity-free alphabet);
+`ensureTenantInviteCode` lazily backfills it for every tenant created before that (same
+pattern as `ensureCalendarFeedToken`). `findTenantByInviteCode` is the one public lookup —
+deliberately returns almost nothing (name + active branches, no address/contact) and refuses
+`SUSPENDED`/`REJECTED` tenants — backing both the doctor registration form's "which clinic is
+this" step and `selfRegisterDoctor`'s own validation, so a stale code is rejected at submit
+time too, not just at display time. `regenerateTenantInviteCode` (exposed to `TENANT_ADMIN`
+at `/api/v1/tenant/invite-code`, shown on `/tenant`) rotates it — the old code stops working
+immediately, same revocation model as the calendar feed token.
+
 ## Provider abstractions (mostly not implemented yet)
 
 The brief requires payments, notifications, storage, and AI to be swappable, not hard-coded

@@ -10,6 +10,7 @@ import * as patient from '@/lib/validation/patient';
 import * as representative from '@/lib/validation/representative';
 import * as security from '@/lib/validation/security';
 import * as schedule from '@/lib/validation/schedule';
+import * as selfRegister from '@/lib/validation/self-register';
 import * as tenant from '@/lib/validation/tenant';
 import type { Permission } from '@/types/rbac';
 
@@ -62,6 +63,25 @@ export const ROUTES: Record<string, RouteMeta> = {
     body: patient.selfRegisterPatientSchema,
     tag: 'Auth',
   },
+  'POST /api/v1/auth/register-tenant': {
+    summary:
+      'Clinic/hospital self-registration: creates the tenant, its first branch, and a TENANT_ADMIN login in one step. No approval step — status starts PENDING_VERIFICATION for visibility only, login works immediately.',
+    auth: 'public',
+    body: selfRegister.selfRegisterTenantSchema,
+    tag: 'Auth',
+  },
+  'POST /api/v1/auth/register-doctor': {
+    summary:
+      'Doctor self-registration: joins an existing clinic by invite code, or stands up a solo INDEPENDENT_DOCTOR tenant. verificationStatus stays PENDING either way — that only gates public marketplace visibility, not login.',
+    auth: 'public',
+    body: selfRegister.selfRegisterDoctorSchema,
+    tag: 'Auth',
+  },
+  'GET /api/v1/public/tenants/by-invite-code/{code}': {
+    summary: "Resolve a clinic's invite code to its name and joinable branches, for the doctor registration form.",
+    auth: 'public',
+    tag: 'Auth',
+  },
 
   // ---- Public marketplace ----
   'POST /api/v1/public/partner-applications': {
@@ -85,6 +105,16 @@ export const ROUTES: Record<string, RouteMeta> = {
     tag: 'Admin',
   },
 
+  'GET /api/v1/tenant/invite-code': {
+    summary: "Read the tenant's own invite code (backfilled on first read if this tenant predates the field).",
+    auth: 'tenant:manage_own',
+    tag: 'Tenant',
+  },
+  'POST /api/v1/tenant/invite-code': {
+    summary: 'Rotate the invite code. The previous code stops working immediately.',
+    auth: 'tenant:manage_own',
+    tag: 'Tenant',
+  },
   'PATCH /api/v1/tenant/doctors/{id}/password': {
     summary: "Tenant admin resets a doctor's password (the admin-side 'forgot password').",
     auth: 'doctor:manage',

@@ -32,14 +32,38 @@ const STATUS_LABEL: Record<string, string> = {
   RESCHEDULED: 'تم التأجيل',
 };
 
+function isoDate(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
 export default async function DoctorAppointmentsPage({ searchParams }: { searchParams: { date?: string } }) {
   const session = await getServerSession(authOptions);
-  const date = searchParams.date ?? new Date().toISOString().slice(0, 10);
+  const today = isoDate(0);
+  const tomorrow = isoDate(1);
+  const date = searchParams.date ?? today;
   const appointments = await listOwnDoctorAppointments(session!.user.id, { date });
+
+  const dayLabel = date === today ? 'مواعيد اليوم' : date === tomorrow ? 'مواعيد الغد' : 'مواعيد يوم ' + date;
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-neutral-900">مواعيد اليوم</h1>
+      <h1 className="mb-1 text-2xl font-bold text-neutral-900">{dayLabel}</h1>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <a
+          href={`?date=${today}`}
+          className={`rounded-md px-3 py-1.5 text-sm ${date === today ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+        >
+          اليوم
+        </a>
+        <a
+          href={`?date=${tomorrow}`}
+          className={`rounded-md px-3 py-1.5 text-sm ${date === tomorrow ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+        >
+          الغد
+        </a>
+      </div>
       <form className="mb-6 flex gap-3" method="get">
         <input
           type="date"

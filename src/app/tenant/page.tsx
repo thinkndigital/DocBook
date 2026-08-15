@@ -4,6 +4,7 @@ import { listBranches } from '@/lib/services/branches';
 import { listDoctors } from '@/lib/services/doctors';
 import { listStaff } from '@/lib/services/staff';
 import { listServices } from '@/lib/services/catalog';
+import { InviteCodeCard } from './invite-code-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export default async function TenantOverviewPage() {
           </Card>
         ))}
       </div>
+      <InviteCodeCard />
     </div>
   );
 }

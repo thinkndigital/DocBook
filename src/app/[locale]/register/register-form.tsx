@@ -1,70 +1,57 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { PatientRegisterForm } from './patient-register-form';
+import { DoctorRegisterForm } from './doctor-register-form';
+import { ClinicRegisterForm } from './clinic-register-form';
 
-export function RegisterForm({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type Role = 'PATIENT' | 'DOCTOR' | 'CLINIC';
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
+interface Props {
+  locale: Locale;
+  dict: Dictionary;
+  countries: Array<{ id: string; name: string; nameAr: string }>;
+  cities: Array<{ id: string; name: string; nameAr: string; countryId: string }>;
+  specialties: Array<{ id: string; name: string; nameAr: string }>;
+}
 
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get('email'));
-    const password = String(form.get('password'));
+export function RegisterForm({ locale, dict, countries, cities, specialties }: Props) {
+  const [role, setRole] = useState<Role>('PATIENT');
+  const nameKey: 'name' | 'nameAr' = locale === 'ar' ? 'nameAr' : 'name';
 
-    const res = await fetch('/api/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        name: form.get('name'),
-        phone: form.get('phone') || undefined,
-      }),
-    });
-
-    if (!res.ok) {
-      setSubmitting(false);
-      const body = await res.json().catch(() => null);
-      setError(body?.error?.message ?? dict.auth.registrationFailed);
-      return;
-    }
-
-    const result = await signIn('credentials', { email, password, redirect: false });
-    setSubmitting(false);
-
-    if (result?.error) {
-      setError(dict.auth.invalidCredentials);
-      return;
-    }
-
-    router.push(`/${locale}/patient`);
-    router.refresh();
-  }
+  const tabs: Array<{ id: Role; label: string }> = [
+    { id: 'PATIENT', label: dict.registerRoles.patientTab },
+    { id: 'DOCTOR', label: dict.registerRoles.doctorTab },
+    { id: 'CLINIC', label: dict.registerRoles.clinicTab },
+  ];
 
   return (
-    <Card className="mx-auto w-full max-w-sm">
-      <h1 className="mb-6 text-xl font-bold text-neutral-900">{dict.auth.registerTitle}</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input name="name" placeholder={dict.auth.name} required autoComplete="name" />
-        <Input name="email" type="email" placeholder={dict.auth.email} required autoComplete="email" />
-        <Input name="phone" placeholder={dict.auth.phone} autoComplete="tel" />
-        <Input name="password" type="password" placeholder={dict.auth.password} required minLength={8} autoComplete="new-password" />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={submitting}>
-          {submitting ? dict.common.loading : dict.auth.registerCta}
-        </Button>
-      </form>
+    <Card className={`mx-auto w-full ${role === 'PATIENT' ? 'max-w-sm' : 'max-w-xl'}`}>
+      <h1 className="mb-4 text-xl font-bold text-neutral-900">{dict.auth.registerTitle}</h1>
+
+      <div className="mb-6 flex gap-1 rounded-md border border-neutral-200 bg-neutral-50 p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setRole(tab.id)}
+            className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+              role === tab.id ? 'bg-white text-brand-700 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {role === 'PATIENT' && <PatientRegisterForm locale={locale} dict={dict} />}
+      {role === 'DOCTOR' && (
+        <DoctorRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} specialties={specialties} />
+      )}
+      {role === 'CLINIC' && <ClinicRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} />}
+
       <p className="mt-4 text-center text-sm text-neutral-600">
         {dict.auth.alreadyHaveAccount}{' '}
         <a href={`/${locale}/login`} className="text-brand-700 hover:underline">

@@ -3625,6 +3625,57 @@
         }
       }
     },
+    "/api/v1/public/tenants/by-invite-code/{code}": {
+      "get": {
+        "summary": "Resolve a clinic's invite code to its name and joinable branches, for the doctor registration form.",
+        "description": "Public — no authentication.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/rep/analytics": {
       "get": {
         "summary": "The rep's own performance over time.",
@@ -6195,6 +6246,116 @@
         ]
       }
     },
+    "/api/v1/tenant/invite-code": {
+      "get": {
+        "summary": "Read the tenant's own invite code (backfilled on first read if this tenant predates the field).",
+        "description": "Requires the `tenant:manage_own` permission.",
+        "tags": [
+          "Tenant"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied. An audit row is written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Rotate the invite code. The previous code stops working immediately.",
+        "description": "Requires the `tenant:manage_own` permission.",
+        "tags": [
+          "Tenant"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied. An audit row is written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/tenant/patients": {
       "get": {
         "summary": "Patients known to this tenant.",
@@ -8553,6 +8714,290 @@
                   "email",
                   "name",
                   "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register-doctor": {
+      "post": {
+        "summary": "Doctor self-registration: joins an existing clinic by invite code, or stands up a solo INDEPENDENT_DOCTOR tenant. verificationStatus stays PENDING either way — that only gates public marketplace visibility, not login.",
+        "description": "Public — no authentication.",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 200
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "nameAr": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "specialtyId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "licenseNumber": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "yearsExperience": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 70,
+                    "default": 0
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "MALE",
+                      "FEMALE"
+                    ]
+                  },
+                  "languages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 30
+                    },
+                    "default": []
+                  },
+                  "consultationPriceMinor": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "bio": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "bioAr": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "inviteCode": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 8
+                  },
+                  "branchId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "newClinic": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 200
+                      },
+                      "nameAr": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 200
+                      },
+                      "countryId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "branchName": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 200
+                      },
+                      "branchAddress": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 300
+                      },
+                      "cityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "branchPhone": {
+                        "type": "string",
+                        "maxLength": 30
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "nameAr",
+                      "countryId",
+                      "branchName",
+                      "branchAddress",
+                      "cityId"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "name",
+                  "specialtyId",
+                  "licenseNumber",
+                  "consultationPriceMinor"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register-tenant": {
+      "post": {
+        "summary": "Clinic/hospital self-registration: creates the tenant, its first branch, and a TENANT_ADMIN login in one step. No approval step — status starts PENDING_VERIFICATION for visibility only, login works immediately.",
+        "description": "Public — no authentication.",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "CLINIC",
+                      "MEDICAL_CENTER",
+                      "HOSPITAL"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "nameAr": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "countryId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "adminName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "adminNameAr": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "adminEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 200
+                  },
+                  "branchName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "branchAddress": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 300
+                  },
+                  "cityId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "branchPhone": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                },
+                "required": [
+                  "type",
+                  "name",
+                  "nameAr",
+                  "countryId",
+                  "adminName",
+                  "adminEmail",
+                  "password",
+                  "branchName",
+                  "branchAddress",
+                  "cityId"
                 ],
                 "additionalProperties": false
               }

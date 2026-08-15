@@ -131,6 +131,48 @@ export interface Dictionary {
     invalidCredentials: string;
     registrationFailed: string;
   };
+  registerRoles: {
+    patientTab: string;
+    doctorTab: string;
+    clinicTab: string;
+    clinicType: string;
+    clinic: string;
+    hospital: string;
+    medicalCenter: string;
+    orgName: string;
+    orgNameAr: string;
+    adminName: string;
+    adminEmail: string;
+    branchName: string;
+    branchAddress: string;
+    branchPhone: string;
+    country: string;
+    city: string;
+    joinExisting: string;
+    createOwn: string;
+    inviteCode: string;
+    inviteCodeHint: string;
+    checkCode: string;
+    checkingCode: string;
+    invalidCode: string;
+    codeResolvedTo: string;
+    selectBranch: string;
+    specialty: string;
+    licenseNumber: string;
+    yearsExperience: string;
+    consultationPrice: string;
+    bio: string;
+    languages: string;
+    newClinicName: string;
+    newClinicNameAr: string;
+    submit: string;
+    submitting: string;
+    successDoctor: string;
+    successClinic: string;
+    error: string;
+    rateLimited: string;
+    emailTaken: string;
+  };
   patientDashboard: {
     title: string;
     upcoming: string;
@@ -270,6 +312,48 @@ const ar: Dictionary = {
     registerCta: 'إنشاء الحساب',
     invalidCredentials: 'بيانات الدخول غير صحيحة.',
     registrationFailed: 'تعذر إنشاء الحساب.',
+  },
+  registerRoles: {
+    patientTab: 'مريض',
+    doctorTab: 'طبيب',
+    clinicTab: 'عيادة أو مستشفى',
+    clinicType: 'نوع الجهة',
+    clinic: 'عيادة',
+    hospital: 'مستشفى',
+    medicalCenter: 'مركز طبي',
+    orgName: 'اسم الجهة (إنجليزي)',
+    orgNameAr: 'اسم الجهة (عربي)',
+    adminName: 'اسم المدير المسؤول',
+    adminEmail: 'البريد الإلكتروني للمدير',
+    branchName: 'اسم الفرع',
+    branchAddress: 'عنوان الفرع',
+    branchPhone: 'هاتف الفرع (اختياري)',
+    country: 'الدولة',
+    city: 'المدينة',
+    joinExisting: 'لدي عيادة مسجّلة بالفعل',
+    createOwn: 'أنشئ عيادتي الخاصة (طبيب مستقل)',
+    inviteCode: 'كود دعوة العيادة',
+    inviteCodeHint: 'احصل عليه من إدارة العيادة التي تعمل بها.',
+    checkCode: 'تحقق من الكود',
+    checkingCode: 'جارٍ التحقق…',
+    invalidCode: 'الكود غير صحيح أو منتهي.',
+    codeResolvedTo: 'العيادة:',
+    selectBranch: 'اختر الفرع',
+    specialty: 'التخصص',
+    licenseNumber: 'رقم الترخيص المهني',
+    yearsExperience: 'سنوات الخبرة',
+    consultationPrice: 'رسوم الكشف (دينار)',
+    bio: 'نبذة تعريفية (اختياري)',
+    languages: 'اللغات (مفصولة بفاصلة، اختياري)',
+    newClinicName: 'اسم العيادة (إنجليزي)',
+    newClinicNameAr: 'اسم العيادة (عربي)',
+    submit: 'إنشاء الحساب',
+    submitting: 'جارٍ الإنشاء…',
+    successDoctor: 'تم إنشاء حسابك. يمكنك الآن الدخول ومتابعة مواعيدك من لوحة الطبيب.',
+    successClinic: 'تم إنشاء حساب الجهة. يمكنك الآن الدخول وإدارة عيادتك.',
+    error: 'تعذر إنشاء الحساب. راجع الحقول وحاول مرة أخرى.',
+    rateLimited: 'محاولات كثيرة من هذا الاتصال. حاول لاحقاً.',
+    emailTaken: 'هذا البريد الإلكتروني مستخدم بالفعل.',
   },
   patientDashboard: {
     title: 'مواعيدي',
@@ -421,6 +505,48 @@ const en: Dictionary = {
     registerCta: 'Create account',
     invalidCredentials: 'Invalid login credentials.',
     registrationFailed: 'Could not create the account.',
+  },
+  registerRoles: {
+    patientTab: 'Patient',
+    doctorTab: 'Doctor',
+    clinicTab: 'Clinic or hospital',
+    clinicType: 'Organisation type',
+    clinic: 'Clinic',
+    hospital: 'Hospital',
+    medicalCenter: 'Medical center',
+    orgName: 'Organisation name (English)',
+    orgNameAr: 'Organisation name (Arabic)',
+    adminName: "Admin's full name",
+    adminEmail: "Admin's email",
+    branchName: 'Branch name',
+    branchAddress: 'Branch address',
+    branchPhone: 'Branch phone (optional)',
+    country: 'Country',
+    city: 'City',
+    joinExisting: 'I already work at a registered clinic',
+    createOwn: 'Set up my own practice (independent doctor)',
+    inviteCode: "Clinic's invite code",
+    inviteCodeHint: 'Get this from your clinic administrator.',
+    checkCode: 'Check code',
+    checkingCode: 'Checking…',
+    invalidCode: 'That code is invalid or expired.',
+    codeResolvedTo: 'Clinic:',
+    selectBranch: 'Select branch',
+    specialty: 'Specialty',
+    licenseNumber: 'Medical license number',
+    yearsExperience: 'Years of experience',
+    consultationPrice: 'Consultation fee (JOD)',
+    bio: 'Short bio (optional)',
+    languages: 'Languages (comma-separated, optional)',
+    newClinicName: 'Clinic name (English)',
+    newClinicNameAr: 'Clinic name (Arabic)',
+    submit: 'Create account',
+    submitting: 'Creating…',
+    successDoctor: 'Your account is ready. Log in to see your schedule from the doctor dashboard.',
+    successClinic: 'Your organisation account is ready. Log in to manage your clinic.',
+    error: 'Could not create the account. Check the fields and try again.',
+    rateLimited: 'Too many attempts from this connection. Please try later.',
+    emailTaken: 'This email is already in use.',
   },
   patientDashboard: {
     title: 'My appointments',
