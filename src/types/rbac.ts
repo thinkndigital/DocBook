@@ -31,6 +31,9 @@ export type Permission =
   | 'prescription:create'
   | 'earnings:read_own'
   | 'analytics:read_own'
+  | 'equipment:browse'
+  | 'equipment_order:create_own'
+  | 'equipment_order:read_own'
   // Tenant admin (clinic/hospital manager)
   | 'tenant:manage_own'
   | 'branch:manage'
@@ -61,6 +64,11 @@ export type Permission =
   | 'commission:read_own'
   | 'lead:manage_own'
   | 'performance:read_own'
+  // Supplier (equipment marketplace) — a separate business line from booking, see
+  // src/lib/services/equipment.ts.
+  | 'supplier_profile:update_own'
+  | 'equipment_product:manage'
+  | 'equipment_order:manage_own'
   // Super admin
   | 'tenant:manage_all'
   | 'tenant:verify'
@@ -110,6 +118,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'queue:read_own',
     'notification:read_own',
     'ai:clinic_insights',
+    'equipment:browse',
+    'equipment_order:create_own',
+    'equipment_order:read_own',
   ],
   TENANT_ADMIN: [
     'tenant:manage_own',
@@ -147,6 +158,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'commission:read_own',
     'lead:manage_own',
     'performance:read_own',
+    'notification:read_own',
+  ],
+  SUPPLIER: [
+    'supplier_profile:update_own',
+    'equipment_product:manage',
+    'equipment_order:manage_own',
     'notification:read_own',
   ],
 };

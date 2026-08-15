@@ -8,6 +8,7 @@ describe('post-login destination', () => {
     expect(postLoginDestination('RECEPTIONIST')).toBe('/tenant');
     expect(postLoginDestination('DOCTOR')).toBe('/doctor');
     expect(postLoginDestination('REPRESENTATIVE')).toBe('/rep');
+    expect(postLoginDestination('SUPPLIER')).toBe('/supplier');
   });
 
   it('keeps patients inside their locale', () => {

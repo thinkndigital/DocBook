@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/card';
 import { PatientRegisterForm } from './patient-register-form';
 import { DoctorRegisterForm } from './doctor-register-form';
 import { ClinicRegisterForm } from './clinic-register-form';
+import { SupplierRegisterForm } from './supplier-register-form';
 
-type Role = 'PATIENT' | 'DOCTOR' | 'CLINIC';
+type Role = 'PATIENT' | 'DOCTOR' | 'CLINIC' | 'SUPPLIER';
 
 interface Props {
   locale: Locale;
@@ -25,6 +26,7 @@ export function RegisterForm({ locale, dict, countries, cities, specialties }: P
     { id: 'PATIENT', label: dict.registerRoles.patientTab },
     { id: 'DOCTOR', label: dict.registerRoles.doctorTab },
     { id: 'CLINIC', label: dict.registerRoles.clinicTab },
+    { id: 'SUPPLIER', label: dict.registerRoles.supplierTab },
   ];
 
   return (
@@ -51,6 +53,7 @@ export function RegisterForm({ locale, dict, countries, cities, specialties }: P
         <DoctorRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} specialties={specialties} />
       )}
       {role === 'CLINIC' && <ClinicRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} />}
+      {role === 'SUPPLIER' && <SupplierRegisterForm dict={dict} nameKey={nameKey} countries={countries} />}
 
       <p className="mt-4 text-center text-sm text-neutral-600">
         {dict.auth.alreadyHaveAccount}{' '}

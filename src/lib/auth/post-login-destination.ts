@@ -25,6 +25,8 @@ export function postLoginDestination(role: UserRole | undefined, locale: Locale 
       return '/doctor';
     case 'REPRESENTATIVE':
       return '/rep';
+    case 'SUPPLIER':
+      return '/supplier';
     case 'PATIENT':
       return `/${locale}/patient`;
     case undefined:

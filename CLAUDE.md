@@ -343,6 +343,28 @@ request `VIDEO` against an in-person service (or vice versa) and get an appointm
 expected to need a call for. `createAppointment` creates the matching `VideoSession` in the
 same transaction only when the resolved type is `VIDEO`.
 
+**The equipment marketplace is a separate business line from booking, with its own role.**
+`SUPPLIER` (added to `UserRole`) is tenant-less like `REPRESENTATIVE`/`PATIENT` — a
+manufacturer sells across every clinic on the platform, not into one — so `Supplier`,
+`EquipmentProduct`, `EquipmentOrder`, `EquipmentOrderItem` carry no `tenantId` and are absent
+from both sets in `src/lib/tenant.ts`; ownership is an explicit `supplierId`/`doctorId` check
+in `src/lib/services/equipment.ts` (`assertOwnProduct`, the inline check in
+`updateEquipmentOrderStatus`), the same shape as `clinical-access.ts`. Suppliers
+self-register the same way doctors/clinics do (`selfRegisterSupplier` in
+`suppliers.ts`, public route `POST /api/v1/auth/register-supplier`) — instant account,
+own chosen password, no admin approval.
+
+Products start `DRAFT` and only show up to doctors (`browseEquipmentProducts`) once a
+supplier sets `status: PUBLISHED`. An order is scoped to exactly one supplier —
+`createEquipmentOrder` rejects a request mixing products from two different suppliers,
+since there's no cross-supplier shipment or split payment — and snapshots each
+`unitPriceMinor` at order time (same reasoning as `Appointment.priceMinor` snapshotting
+`Service.priceMinor`: a later price change must never reprice a placed order). Stock is
+decremented inside the same transaction the order is created in, so two doctors racing for
+the last unit can't both succeed. Order status follows a fixed transition map
+(`ALLOWED_ORDER_TRANSITIONS`) enforced only on the supplier side — a doctor can never set
+their own order to `CONFIRMED`/`SHIPPED`/`DELIVERED`, only place it.
+
 ## Provider abstractions (mostly not implemented yet)
 
 The brief requires payments, notifications, storage, and AI to be swappable, not hard-coded

@@ -135,6 +135,9 @@ export interface Dictionary {
     patientTab: string;
     doctorTab: string;
     clinicTab: string;
+    supplierTab: string;
+    contactPersonName: string;
+    successSupplier: string;
     clinicType: string;
     clinic: string;
     hospital: string;
@@ -317,6 +320,9 @@ const ar: Dictionary = {
     patientTab: 'مريض',
     doctorTab: 'طبيب',
     clinicTab: 'عيادة أو مستشفى',
+    supplierTab: 'مورد تجهيزات طبية',
+    contactPersonName: 'اسم المسؤول',
+    successSupplier: 'تم إنشاء حساب الشركة. يمكنك الآن الدخول وإضافة منتجاتك.',
     clinicType: 'نوع الجهة',
     clinic: 'عيادة',
     hospital: 'مستشفى',
@@ -510,6 +516,9 @@ const en: Dictionary = {
     patientTab: 'Patient',
     doctorTab: 'Doctor',
     clinicTab: 'Clinic or hospital',
+    supplierTab: 'Medical equipment supplier',
+    contactPersonName: 'Contact person name',
+    successSupplier: 'Your company account is ready. Log in to add your products.',
     clinicType: 'Organisation type',
     clinic: 'Clinic',
     hospital: 'Hospital',

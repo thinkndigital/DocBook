@@ -34,6 +34,12 @@ export default async function DoctorLayout({ children }: { children: React.React
         <Link href="/doctor/analytics" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           أدائي
         </Link>
+        <Link href="/doctor/equipment" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
+          تجهيزات طبية
+        </Link>
+        <Link href="/doctor/equipment/orders" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
+          طلباتي
+        </Link>
       </nav>
       <div className="p-4 md:p-8">{children}</div>
     </div>

@@ -5,6 +5,7 @@ import * as appointment from '@/lib/validation/appointment';
 import * as billing from '@/lib/validation/billing';
 import * as clinical from '@/lib/validation/clinical';
 import * as doctor from '@/lib/validation/doctor';
+import * as equipment from '@/lib/validation/equipment';
 import * as partner from '@/lib/validation/partner';
 import * as patient from '@/lib/validation/patient';
 import * as representative from '@/lib/validation/representative';
@@ -81,6 +82,12 @@ export const ROUTES: Record<string, RouteMeta> = {
   'GET /api/v1/public/tenants/by-invite-code/{code}': {
     summary: "Resolve a clinic's invite code to its name and joinable branches, for the doctor registration form.",
     auth: 'public',
+    tag: 'Auth',
+  },
+  'POST /api/v1/auth/register-supplier': {
+    summary: 'Medical equipment manufacturer/distributor self-registration.',
+    auth: 'public',
+    body: equipment.selfRegisterSupplierSchema,
     tag: 'Auth',
   },
 
@@ -230,6 +237,45 @@ export const ROUTES: Record<string, RouteMeta> = {
     auth: 'video_session:join_own',
     body: video.postVideoSignalSchema,
     tag: 'Video',
+  },
+
+  // ---- Equipment marketplace ----
+  'GET /api/v1/supplier/products': { summary: "The supplier's own product catalog (all statuses).", auth: 'equipment_product:manage', tag: 'Supplier' },
+  'POST /api/v1/supplier/products': {
+    summary: 'Create a product, starting as DRAFT.',
+    auth: 'equipment_product:manage',
+    body: equipment.createProductSchema,
+    tag: 'Supplier',
+  },
+  'PATCH /api/v1/supplier/products/{id}': {
+    summary: 'Update a product, including publishing/archiving it via `status`.',
+    auth: 'equipment_product:manage',
+    body: equipment.updateProductSchema,
+    tag: 'Supplier',
+  },
+  'DELETE /api/v1/supplier/products/{id}': { summary: 'Soft-delete (archives) a product.', auth: 'equipment_product:manage', tag: 'Supplier' },
+  'GET /api/v1/supplier/orders': { summary: 'Orders placed to this supplier.', auth: 'equipment_order:manage_own', tag: 'Supplier' },
+  'PATCH /api/v1/supplier/orders/{id}/status': {
+    summary: 'Advance an order (CONFIRMED → SHIPPED → DELIVERED, or CANCELLED).',
+    auth: 'equipment_order:manage_own',
+    body: equipment.updateEquipmentOrderStatusSchema,
+    tag: 'Supplier',
+  },
+  'GET /api/v1/equipment/products': {
+    summary: 'Doctor browsing the published catalog across every supplier.',
+    auth: 'equipment:browse',
+    query: [
+      { name: 'search', description: 'Matches name or nameAr.' },
+      { name: 'category', description: 'Exact category match.' },
+    ],
+    tag: 'Doctor',
+  },
+  'GET /api/v1/doctor/equipment-orders': { summary: "The caller doctor's own equipment orders.", auth: 'equipment_order:read_own', tag: 'Doctor' },
+  'POST /api/v1/doctor/equipment-orders': {
+    summary: 'Place an order — all items must come from the same supplier.',
+    auth: 'equipment_order:create_own',
+    body: equipment.createEquipmentOrderSchema,
+    tag: 'Doctor',
   },
 
   'GET /api/v1/patient/records': { summary: "The caller's own medical records.", auth: 'medical_record:read_own', tag: 'Patient' },

@@ -50,6 +50,7 @@ enum UserRole {
   RECEPTIONIST
   REPRESENTATIVE
   PATIENT
+  SUPPLIER
 }
 
 enum UserStatus {
@@ -198,6 +199,7 @@ model Country {
   cities              City[]
   tenants             Tenant[]
   partnerApplications PartnerApplication[]
+  suppliers           Supplier[]
 
   @@map("countries")
 }
@@ -321,6 +323,7 @@ model User {
   doctor         Doctor?
   staff          Staff?
   representative Representative?
+  supplier       Supplier?
   auditLogs      AuditLog[]      @relation("AuditActor")
   notifications  Notification[]
   sentMessages   Message[]       @relation("MessageSender")
@@ -463,6 +466,7 @@ model Doctor {
   medicalRecords     MedicalRecord[]
   prescriptions      Prescription[]
   reviews            Review[]
+  equipmentOrders    EquipmentOrder[]
 
   @@index([tenantId])
   @@index([specialtyId])
@@ -1086,4 +1090,112 @@ enum PartnerApplicationStatus {
   CONTACTED
   APPROVED
   REJECTED
+}
+
+// ---------- Equipment marketplace ----------
+//
+// A separate business line from booking: manufacturers/distributors of medical equipment
+// list products, and doctors order from whichever supplier they choose. Suppliers are
+// tenant-less like Representative and Patient — a manufacturer sells across every clinic on
+// the platform, not into one — so none of these models carry tenantId or go through
+// runWithTenant; ownership is an explicit supplierId/doctorId check in
+// src/lib/services/equipment.ts, the same shape as clinical-access.ts.
+
+model Supplier {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  name      String
+  nameAr    String
+  countryId String
+  phone     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user     User               @relation(fields: [userId], references: [id])
+  country  Country            @relation(fields: [countryId], references: [id])
+  products EquipmentProduct[]
+  orders   EquipmentOrder[]
+
+  @@index([countryId])
+  @@map("suppliers")
+}
+
+enum EquipmentProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model EquipmentProduct {
+  id            String                  @id @default(uuid())
+  supplierId    String
+  name          String
+  nameAr        String
+  description   String?
+  descriptionAr String?
+  /// Free text, same convention as Doctor.subSpecialty — equipment categories are too broad
+  /// and vendor-specific for a fixed enum to stay honest.
+  category      String
+  priceMinor    Int
+  currency      String                  @default("JOD")
+  stockQty      Int                     @default(0)
+  status        EquipmentProductStatus  @default(DRAFT)
+  imageUrl      String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  deletedAt     DateTime?
+
+  supplier   Supplier             @relation(fields: [supplierId], references: [id])
+  orderItems EquipmentOrderItem[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@map("equipment_products")
+}
+
+enum EquipmentOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model EquipmentOrder {
+  id              String                @id @default(uuid())
+  supplierId      String
+  doctorId        String
+  status          EquipmentOrderStatus  @default(PENDING)
+  totalMinor      Int
+  currency        String                @default("JOD")
+  shippingAddress String
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  supplier Supplier             @relation(fields: [supplierId], references: [id])
+  doctor   Doctor               @relation(fields: [doctorId], references: [id])
+  items    EquipmentOrderItem[]
+
+  @@index([supplierId, createdAt])
+  @@index([doctorId, createdAt])
+  @@map("equipment_orders")
+}
+
+model EquipmentOrderItem {
+  id             String @id @default(uuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  /// Snapshot of EquipmentProduct.priceMinor at order time — same reasoning as
+  /// Appointment.priceMinor snapshotting Service.priceMinor: a later price change must
+  /// never reprice a placed order.
+  unitPriceMinor Int
+
+  order   EquipmentOrder   @relation(fields: [orderId], references: [id])
+  product EquipmentProduct @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("equipment_order_items")
 }
