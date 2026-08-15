@@ -50,9 +50,19 @@ jobs:
       # values sourced from `secrets.*`. Without this, demo_password prints in cleartext in
       # every step's "env:" log dump (this repo is public, so that means the whole internet).
       # Must run before any step's env: block references the input.
+      #
+      # Reads the value via jq from $GITHUB_EVENT_PATH rather than `${{ inputs.demo_password }}`
+      # interpolation on purpose: GitHub echoes a step's fully-resolved run: text (and any env:
+      # block) in the log BEFORE that step's script executes — so a masking step that references
+      # the value through `${{ }}` leaks it once, in its own command echo, before the mask it's
+      # registering has taken effect. Extracting it inside the shell keeps the run: text and this
+      # step's env static, with nothing for the runner to echo.
       - name: Mask password
-        if: ${{ inputs.demo_password != '' }}
-        run: echo "::add-mask::${{ inputs.demo_password }}"
+        run: |
+          PW=$(jq -r '.inputs.demo_password // empty' "$GITHUB_EVENT_PATH")
+          if [ -n "$PW" ]; then
+            echo "::add-mask::$PW"
+          fi
 
       - uses: actions/setup-node@v4
         with:
