@@ -4,6 +4,7 @@ import { runInSessionTenant } from '@/lib/api/tenant-scope';
 import { listBranches } from '@/lib/services/branches';
 import { listDoctors } from '@/lib/services/doctors';
 import { listSpecialties } from '@/lib/services/specialties';
+import { ResetPasswordButton } from '@/components/admin/reset-password-button';
 import { NewDoctorForm } from './new-doctor-form';
 
 export const dynamic = 'force-dynamic';
@@ -71,9 +72,12 @@ export default async function DoctorsPage() {
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/tenant/doctors/${doctor.id}`} className="text-sm text-brand-700 hover:underline">
-                    الجدول
-                  </Link>
+                  <div className="flex flex-col items-start gap-1">
+                    <Link href={`/tenant/doctors/${doctor.id}`} className="text-sm text-brand-700 hover:underline">
+                      الجدول
+                    </Link>
+                    <ResetPasswordButton endpoint={`/api/v1/tenant/doctors/${doctor.id}/password`} />
+                  </div>
                 </td>
               </tr>
             ))}

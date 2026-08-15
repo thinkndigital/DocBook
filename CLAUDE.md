@@ -266,8 +266,25 @@ value is public, so a session alone must not be enough) and refuses the assigned
 a new password — that refusal is not a strength rule and is what stops the flow being
 satisfied by retyping the published value. There is deliberately **no minimum length**
 (owner's decision, see SECURITY.md); don't add one back as a "fix". `selfRegisterPatient` never sets the flag — that password was the user's own
-choice. There is no password *reset* flow: no email channel is configured, and a reset
-without delivery locks people out rather than in.
+choice.
+
+**Every admin-facing creation form has an optional `initialPassword` field**
+(`src/lib/services/account-provisioning.ts` → `resolveInitialPassword`). Typed, it becomes
+the account's real password immediately (`mustChangePassword: false`) — the creator is
+expected to hand it to the person directly, same as a default. Left blank, the old
+default-password-plus-forced-change behaviour applies. This is the single place that
+decision is made; every creation path (`createDoctor`, `createStaff`,
+`createRepresentative`, `createTenant`) calls it rather than hashing `DEFAULT_ASSIGNED_PASSWORD`
+itself.
+
+**There is no self-service password reset** — `EMAIL_PROVIDER=dev` only logs, so a reset
+flow could never deliver a working link. `/account/forgot-password` says so and points to
+the admin side instead: `adminSetUserPassword` (`src/lib/services/password.ts`) plus one
+`ResetPasswordButton` per resource — `resetDoctorPassword`/`resetStaffPassword` resolve the
+target through the tenant-scoped `Doctor`/`Staff` row (never a direct `User` lookup, so a
+`TENANT_ADMIN` cannot reach another tenant's account no matter what id is passed),
+`resetRepresentativePassword`/`resetTenantAdminPassword` need no such scoping since only
+`SUPER_ADMIN` holds those permissions.
 
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass

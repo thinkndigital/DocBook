@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
-import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
-import bcrypt from 'bcryptjs';
+import { resolveInitialPassword } from '@/lib/services/account-provisioning';
+import { adminSetUserPassword } from '@/lib/services/password';
 import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { createStaffSchema } from '@/lib/validation/tenant';
@@ -29,7 +29,7 @@ export async function createStaff(input: CreateStaffInput, actor: SessionUser & 
     if (!branch) throw new InvalidBranchError('Branch does not exist or does not belong to this tenant.');
   }
 
-  const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
+  const { passwordHash, mustChangePassword } = await resolveInitialPassword(input.initialPassword);
 
   const staff = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -41,8 +41,7 @@ export async function createStaff(input: CreateStaffInput, actor: SessionUser & 
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
-        // Created on the shared assigned password; blocked from everything until changed.
-        mustChangePassword: true,
+        mustChangePassword,
       },
     });
 
@@ -62,4 +61,16 @@ export async function createStaff(input: CreateStaffInput, actor: SessionUser & 
   });
 
   return staff;
+}
+
+/** Same reasoning as resetDoctorPassword: scoped through the tenant-scoped Staff row. */
+export async function resetStaffPassword(
+  staffId: string,
+  newPassword: string | undefined,
+  actor: SessionUser
+): Promise<boolean> {
+  const staff = await db.staff.findFirst({ where: { id: staffId }, select: { userId: true } });
+  if (!staff) return false;
+  await adminSetUserPassword(staff.userId, newPassword, actor);
+  return true;
 }

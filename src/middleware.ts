@@ -11,7 +11,12 @@ const PUBLIC_PATHS = ['/login', '/api/auth', '/_next', '/favicon.ico'];
  * of the only page that can unlock them is a loop. `/api/auth` is included so sign-out
  * still works: someone who cannot or will not change the password must be able to leave.
  */
-const PASSWORD_CHANGE_ALLOWED = ['/account/password', '/api/v1/account/password', '/api/auth'];
+const PASSWORD_CHANGE_ALLOWED = [
+  '/account/password',
+  '/api/v1/account/password',
+  '/api/auth',
+  '/account/forgot-password',
+];
 
 /**
  * Warns once per process if the host being served disagrees with NEXTAUTH_URL.

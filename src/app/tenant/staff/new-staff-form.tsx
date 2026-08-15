@@ -25,6 +25,7 @@ export function NewStaffForm({ branches }: { branches: Array<{ id: string; name:
         name: form.get('name'),
         title: form.get('title') || undefined,
         branchId: form.get('branchId') || undefined,
+        initialPassword: form.get('initialPassword') || undefined,
       }),
     });
 
@@ -61,6 +62,13 @@ export function NewStaffForm({ branches }: { branches: Array<{ id: string; name:
           </option>
         ))}
       </Select>
+      <div className="col-span-2">
+        <Input name="initialPassword" placeholder="كلمة سر أولية (اختياري)" />
+        <p className="mt-1 text-xs text-neutral-500">
+          اتركها فارغة لكلمة سر افتراضية يُطلب تغييرها عند أول دخول، أو اكتب كلمة سر وأعطها
+          للموظف مباشرة.
+        </p>
+      </div>
       {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
       <div className="col-span-2 flex gap-2">
         <Button type="submit" disabled={submitting}>

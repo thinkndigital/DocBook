@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
-import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
-import bcrypt from 'bcryptjs';
+import { resolveInitialPassword } from '@/lib/services/account-provisioning';
+import { adminSetUserPassword } from '@/lib/services/password';
 import type { SessionUser } from '@/lib/auth';
 import type { z } from 'zod';
 import type { createDoctorSchema, updateDoctorSchema } from '@/lib/validation/tenant';
@@ -44,7 +44,7 @@ export async function createDoctor(input: CreateDoctorInput, actor: SessionUser 
     throw new InvalidBranchError('One or more branches do not exist or do not belong to this tenant.');
   }
 
-  const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
+  const { passwordHash, mustChangePassword } = await resolveInitialPassword(input.initialPassword);
 
   const doctor = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -56,8 +56,7 @@ export async function createDoctor(input: CreateDoctorInput, actor: SessionUser 
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
-        // Created on the shared assigned password; blocked from everything until changed.
-        mustChangePassword: true,
+        mustChangePassword,
       },
     });
 
@@ -184,4 +183,22 @@ export async function verifyDoctor(id: string, input: VerifyDoctorInput, actor: 
   });
 
   return doctor;
+}
+
+/**
+ * Reset a doctor's password, tenant-scoped through the `Doctor` row rather than a direct
+ * `User` lookup — `Doctor` is in `TENANT_REQUIRED_MODELS`, so this `findFirst` is
+ * automatically confined to the caller's tenant by the middleware (running inside
+ * `withTenantAuthorization`). A `TENANT_ADMIN` therefore cannot reach another tenant's
+ * doctor by id no matter what id they pass, the same guarantee `getDoctor` relies on.
+ */
+export async function resetDoctorPassword(
+  doctorId: string,
+  newPassword: string | undefined,
+  actor: SessionUser
+): Promise<boolean> {
+  const doctor = await db.doctor.findFirst({ where: { id: doctorId }, select: { userId: true } });
+  if (!doctor) return false;
+  await adminSetUserPassword(doctor.userId, newPassword, actor);
+  return true;
 }

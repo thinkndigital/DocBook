@@ -25,6 +25,11 @@ export const createDoctorSchema = z.object({
   email: emailSchema,
   name: z.string().min(2).max(200),
   nameAr: z.string().min(2).max(200).optional(),
+  // If given, this becomes the account's real password (mustChangePassword is not set) —
+  // the creator is expected to hand it to the doctor directly. Left blank, the account
+  // gets DEFAULT_ASSIGNED_PASSWORD and is locked to the change-password screen until the
+  // doctor sets their own. See src/lib/services/account-provisioning.ts.
+  initialPassword: z.string().min(1).max(200).optional(),
   specialtyId: z.string().uuid(),
   licenseNumber: z.string().min(2).max(100),
   yearsExperience: z.number().int().min(0).max(70).default(0),
@@ -53,6 +58,8 @@ export const createStaffSchema = z.object({
   nameAr: z.string().min(2).max(200).optional(),
   branchId: z.string().uuid().optional(),
   title: z.string().max(100).optional(),
+  // See createDoctorSchema — same rule, same reasoning.
+  initialPassword: z.string().min(1).max(200).optional(),
 });
 
 export const createServiceSchema = z.object({

@@ -78,6 +78,11 @@ export function LoginForm() {
           {submitting ? '...جارٍ الدخول' : 'دخول'}
         </Button>
       </form>
+      <p className="mt-4 text-center text-sm">
+        <a href="/account/forgot-password" className="text-neutral-500 hover:underline">
+          نسيت كلمة السر؟
+        </a>
+      </p>
     </Card>
   );
 }

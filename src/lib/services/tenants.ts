@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
-import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
-import bcrypt from 'bcryptjs';
+import { resolveInitialPassword } from '@/lib/services/account-provisioning';
+import { adminSetUserPassword } from '@/lib/services/password';
 import type { TenantStatus, TenantType } from '@prisma/client';
 import type { SessionUser } from '@/lib/auth';
 import { normalizeEmail } from '@/lib/validation/common';
@@ -14,6 +14,7 @@ export interface CreateTenantInput {
   adminEmail: string;
   adminName: string;
   adminNameAr?: string;
+  adminInitialPassword?: string;
 }
 
 export class TenantConflictError extends Error {}
@@ -30,7 +31,7 @@ export async function createTenant(input: CreateTenantInput, actor: SessionUser)
     throw new TenantConflictError(`A user with email ${email} already exists.`);
   }
 
-  const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
+  const { passwordHash, mustChangePassword } = await resolveInitialPassword(input.adminInitialPassword);
 
   const result = await db.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
@@ -52,8 +53,7 @@ export async function createTenant(input: CreateTenantInput, actor: SessionUser)
         name: input.adminName,
         nameAr: input.adminNameAr,
         status: 'ACTIVE',
-        // Created on the shared assigned password; blocked from everything until changed.
-        mustChangePassword: true,
+        mustChangePassword,
       },
     });
 
@@ -136,4 +136,21 @@ export async function setTenantStatus(
   });
 
   return updated;
+}
+
+/**
+ * Reset a tenant's admin-user password. SUPER_ADMIN only (same permission as createTenant),
+ * so no tenant scoping is needed — the tenant id itself is the only input, and `findFirst`
+ * on `Tenant` runs with no tenant context (SUPER_ADMIN routes bypass the middleware, see
+ * ARCHITECTURE.md "Multi-tenancy").
+ */
+export async function resetTenantAdminPassword(
+  tenantId: string,
+  newPassword: string | undefined,
+  actor: SessionUser
+): Promise<boolean> {
+  const adminUser = await db.user.findFirst({ where: { tenantId, role: 'TENANT_ADMIN' }, select: { id: true } });
+  if (!adminUser) return false;
+  await adminSetUserPassword(adminUser.id, newPassword, actor);
+  return true;
 }

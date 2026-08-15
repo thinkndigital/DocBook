@@ -25,6 +25,7 @@ export function NewRepForm() {
         email: form.get('email'),
         name: form.get('name'),
         monthlyTargetAmount: target ? Math.round(Number(target) * 100) : undefined,
+        initialPassword: form.get('initialPassword') || undefined,
       }),
     });
 
@@ -53,6 +54,13 @@ export function NewRepForm() {
       <Input name="name" placeholder="الاسم" required />
       <Input name="email" type="email" placeholder="البريد الإلكتروني" required />
       <Input name="monthlyTarget" type="number" step="0.01" min="0" placeholder="الهدف الشهري (JOD، اختياري)" />
+      <div className="col-span-3">
+        <Input name="initialPassword" placeholder="كلمة سر أولية (اختياري)" />
+        <p className="mt-1 text-xs text-neutral-500">
+          اتركها فارغة لكلمة سر افتراضية يُطلب تغييرها عند أول دخول، أو اكتب كلمة سر وأعطها
+          للمندوب مباشرة.
+        </p>
+      </div>
       {error && <p className="col-span-3 text-sm text-red-600">{error}</p>}
       <div className="col-span-3 flex gap-2">
         <Button type="submit" disabled={submitting}>

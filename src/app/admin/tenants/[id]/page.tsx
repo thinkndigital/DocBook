@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getTenant } from '@/lib/services/tenants';
+import { ResetPasswordButton } from '@/components/admin/reset-password-button';
 import { TenantStatusActions } from './tenant-status-actions';
 import type { TenantStatus } from '@prisma/client';
 
@@ -57,11 +58,14 @@ export default async function TenantDetailPage({ params }: { params: { id: strin
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {tenant.users.map((u) => (
-              <li key={u.id} className="flex justify-between">
+              <li key={u.id} className="flex items-center justify-between gap-3">
                 <span>
                   {u.name} — {u.email}
                 </span>
-                <Badge tone={u.status === 'ACTIVE' ? 'success' : 'neutral'}>{u.status}</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge tone={u.status === 'ACTIVE' ? 'success' : 'neutral'}>{u.status}</Badge>
+                  <ResetPasswordButton endpoint={`/api/v1/admin/tenants/${tenant.id}/admin-password`} />
+                </div>
               </li>
             ))}
           </ul>

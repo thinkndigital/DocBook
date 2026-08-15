@@ -25,3 +25,13 @@ export const changePasswordSchema = z.object({
   // min(1) only rejects an empty string; it is not a strength requirement.
   newPassword: z.string().min(1).max(200),
 });
+
+/**
+ * An admin setting/resetting someone else's password. Same "no minimum length" rule as
+ * changePasswordSchema — see the comment there — and the same reason it stays unbounded
+ * above 0: an empty string is treated as "reset to the default", not as a chosen password,
+ * so it's a separate branch in the route rather than something this schema rejects.
+ */
+export const adminSetPasswordSchema = z.object({
+  newPassword: z.string().min(1).max(200).optional(),
+});

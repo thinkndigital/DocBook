@@ -59,6 +59,11 @@ export function MarketplaceLoginForm({ locale, dict }: { locale: Locale; dict: D
           {dict.auth.registerCta}
         </a>
       </p>
+      <p className="mt-2 text-center text-sm">
+        <a href="/account/forgot-password" className="text-neutral-500 hover:underline">
+          نسيت كلمة السر؟
+        </a>
+      </p>
     </Card>
   );
 }

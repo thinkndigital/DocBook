@@ -19,6 +19,8 @@ export const createTenantSchema = z.object({
   adminEmail: emailSchema,
   adminName: z.string().min(2).max(200),
   adminNameAr: z.string().min(2).max(200).optional(),
+  // See createDoctorSchema in validation/tenant.ts — same rule, same reasoning.
+  adminInitialPassword: z.string().min(1).max(200).optional(),
 });
 
 export const tenantStatusSchema = z.object({

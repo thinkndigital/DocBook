@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { recordAudit } from '@/lib/audit';
-import { DEFAULT_ASSIGNED_PASSWORD } from '@/lib/constants';
-import bcrypt from 'bcryptjs';
+import { resolveInitialPassword } from '@/lib/services/account-provisioning';
+import { adminSetUserPassword } from '@/lib/services/password';
 import type { SessionUser } from '@/lib/auth';
 import { normalizeEmail } from '@/lib/validation/common';
 
@@ -22,14 +22,20 @@ const REP_INCLUDE = {
  * tenant staff. Their reach is defined solely by RepresentativeAssignment rows.
  */
 export async function createRepresentative(
-  input: { email: string; name: string; nameAr?: string; monthlyTargetAmount?: number },
+  input: {
+    email: string;
+    name: string;
+    nameAr?: string;
+    monthlyTargetAmount?: number;
+    initialPassword?: string;
+  },
   actor: SessionUser
 ) {
   const email = normalizeEmail(input.email);
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) throw new RepConflictError(`A user with email ${email} already exists.`);
 
-  const passwordHash = await bcrypt.hash(DEFAULT_ASSIGNED_PASSWORD, 12);
+  const { passwordHash, mustChangePassword } = await resolveInitialPassword(input.initialPassword);
 
   const rep = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -40,8 +46,7 @@ export async function createRepresentative(
         name: input.name,
         nameAr: input.nameAr,
         status: 'ACTIVE',
-        // Created on the shared assigned password; blocked from everything until changed.
-        mustChangePassword: true,
+        mustChangePassword,
       },
     });
     return tx.representative.create({
@@ -219,4 +224,19 @@ export async function getRepStats(representativeId: string) {
     monthlyTargetAmount: target,
     targetAchievementPct: target && target > 0 ? Math.round((monthRevenueMinor / target) * 100) : null,
   };
+}
+
+/**
+ * Reset a representative's password. No tenant scoping needed — only SUPER_ADMIN holds
+ * `representative:manage`, and representatives are platform-level (tenantId is null).
+ */
+export async function resetRepresentativePassword(
+  repId: string,
+  newPassword: string | undefined,
+  actor: SessionUser
+): Promise<boolean> {
+  const rep = await db.representative.findUnique({ where: { id: repId }, select: { userId: true } });
+  if (!rep) return false;
+  await adminSetUserPassword(rep.userId, newPassword, actor);
+  return true;
 }

@@ -1,6 +1,7 @@
 import { runInSessionTenant } from '@/lib/api/tenant-scope';
 import { listStaff } from '@/lib/services/staff';
 import { listBranches } from '@/lib/services/branches';
+import { ResetPasswordButton } from '@/components/admin/reset-password-button';
 import { NewStaffForm } from './new-staff-form';
 
 export const dynamic = 'force-dynamic';
@@ -24,12 +25,13 @@ export default async function StaffPage() {
               <th className="px-4 py-3 font-medium">البريد الإلكتروني</th>
               <th className="px-4 py-3 font-medium">المسمى</th>
               <th className="px-4 py-3 font-medium">الفرع</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-neutral-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-neutral-500">
                   لا يوجد موظفون بعد.
                 </td>
               </tr>
@@ -40,6 +42,9 @@ export default async function StaffPage() {
                 <td className="px-4 py-3 text-neutral-600">{s.user.email}</td>
                 <td className="px-4 py-3 text-neutral-600">{s.title ?? '—'}</td>
                 <td className="px-4 py-3 text-neutral-600">{s.branch?.name ?? '—'}</td>
+                <td className="px-4 py-3">
+                  <ResetPasswordButton endpoint={`/api/v1/tenant/staff/${s.id}/password`} />
+                </td>
               </tr>
             ))}
           </tbody>

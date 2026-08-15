@@ -39,6 +39,7 @@ export function NewTenantForm({ countries }: { countries: Array<{ id: string; na
         countryId: form.get('countryId'),
         adminEmail: form.get('adminEmail'),
         adminName: form.get('adminName'),
+        adminInitialPassword: form.get('adminInitialPassword') || undefined,
       }),
     });
 
@@ -88,6 +89,13 @@ export function NewTenantForm({ countries }: { countries: Array<{ id: string; na
       <Input name="nameAr" placeholder="الاسم (عربي)" required />
       <Input name="adminName" placeholder="اسم المدير المسؤول" required />
       <Input name="adminEmail" type="email" placeholder="بريد المدير المسؤول" required />
+      <div className="col-span-2">
+        <Input name="adminInitialPassword" placeholder="كلمة سر أولية للمدير (اختياري)" />
+        <p className="mt-1 text-xs text-neutral-500">
+          اتركها فارغة لكلمة سر افتراضية يُطلب تغييرها عند أول دخول، أو اكتب كلمة سر وأعطها
+          لمدير الجهة مباشرة.
+        </p>
+      </div>
       {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
       <div className="col-span-2 flex gap-2">
         <Button type="submit" disabled={submitting}>

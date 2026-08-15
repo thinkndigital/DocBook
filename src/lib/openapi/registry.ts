@@ -85,6 +85,31 @@ export const ROUTES: Record<string, RouteMeta> = {
     tag: 'Admin',
   },
 
+  'PATCH /api/v1/tenant/doctors/{id}/password': {
+    summary: "Tenant admin resets a doctor's password (the admin-side 'forgot password').",
+    auth: 'doctor:manage',
+    body: security.adminSetPasswordSchema,
+    tag: 'Tenant',
+  },
+  'PATCH /api/v1/tenant/staff/{id}/password': {
+    summary: "Tenant admin resets a staff member's password.",
+    auth: 'staff:manage',
+    body: security.adminSetPasswordSchema,
+    tag: 'Tenant',
+  },
+  'PATCH /api/v1/admin/representatives/{id}/password': {
+    summary: "Platform admin resets a representative's password.",
+    auth: 'representative:manage',
+    body: security.adminSetPasswordSchema,
+    tag: 'Admin',
+  },
+  'PATCH /api/v1/admin/tenants/{id}/admin-password': {
+    summary: "Platform admin resets a tenant's admin-user password.",
+    auth: 'tenant:manage_all',
+    body: security.adminSetPasswordSchema,
+    tag: 'Admin',
+  },
+
   'POST /api/v1/account/password': {
     summary:
       'Change the signed-in account\'s own password. Always requires the current password, and clears the mustChangePassword flag.',

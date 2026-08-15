@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { listRepresentatives } from '@/lib/services/representatives';
 import { listTenants } from '@/lib/services/tenants';
+import { ResetPasswordButton } from '@/components/admin/reset-password-button';
 import { NewRepForm, AssignTenantForm } from './rep-forms';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,9 @@ export default async function AdminRepresentativesPage() {
               <div>
                 <h2 className="font-semibold text-neutral-900">{rep.user.name}</h2>
                 <p className="text-sm text-neutral-500">{rep.user.email}</p>
+                <div className="mt-1">
+                  <ResetPasswordButton endpoint={`/api/v1/admin/representatives/${rep.id}/password`} />
+                </div>
               </div>
               <div className="text-left text-sm text-neutral-600">
                 <div>{rep._count.bookedAppointments} حجز</div>

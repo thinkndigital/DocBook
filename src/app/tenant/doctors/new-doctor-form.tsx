@@ -35,6 +35,7 @@ export function NewDoctorForm({ branches, specialties }: Props) {
         licenseNumber: form.get('licenseNumber'),
         consultationPriceMinor: Math.round(Number(form.get('consultationPrice')) * 100),
         branchIds,
+        initialPassword: form.get('initialPassword') || undefined,
       }),
     });
 
@@ -75,6 +76,13 @@ export function NewDoctorForm({ branches, specialties }: Props) {
         ))}
       </Select>
       <Input name="consultationPrice" type="number" step="0.01" min="0" placeholder="سعر الاستشارة (JOD)" required />
+      <div className="col-span-2">
+        <Input name="initialPassword" placeholder="كلمة سر أولية (اختياري)" />
+        <p className="mt-1 text-xs text-neutral-500">
+          إذا تركتها فارغة، سيُعطى الطبيب كلمة سر افتراضية ويُطلب منه تغييرها عند أول دخول. إذا
+          كتبت كلمة سر هنا، أعطها للطبيب مباشرة — ستكون هي كلمة دخوله فوراً بلا إجبار على تغييرها.
+        </p>
+      </div>
       <fieldset className="col-span-2">
         <legend className="mb-1 text-sm text-neutral-700">الفروع</legend>
         <div className="flex flex-wrap gap-3">
