@@ -51,6 +51,15 @@ export function PasswordForm({ required }: { required: boolean }) {
 
   return (
     <Card className="w-full max-w-sm">
+      {!required && (
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-3 text-sm text-neutral-500 hover:text-neutral-800"
+        >
+          → رجوع
+        </button>
+      )}
       <h1 className="mb-2 text-xl font-bold text-neutral-900">
         {required ? 'غيّر كلمة السر للمتابعة' : 'تغيير كلمة السر'}
       </h1>

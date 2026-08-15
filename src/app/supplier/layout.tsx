@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
+import { LogoutButton } from '@/components/auth/logout-button';
 
 import type { Metadata } from 'next';
 
@@ -23,6 +24,10 @@ export default async function SupplierLayout({ children }: { children: React.Rea
         <Link href="/supplier/orders" className="whitespace-nowrap text-neutral-700 hover:text-brand-700">
           الطلبات الواردة
         </Link>
+        <Link href="/account/password" className="whitespace-nowrap text-neutral-700 hover:text-brand-700 md:mr-auto">
+          حسابي
+        </Link>
+        <LogoutButton />
       </nav>
       <div className="p-4 md:p-8">{children}</div>
     </div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
+import { LogoutButton } from '@/components/auth/logout-button';
 
 /**
  * The session-dependent half of the marketplace nav.
@@ -42,6 +43,14 @@ export function UserNav({ locale, dict }: { locale: Locale; dict: Dictionary }) 
         <Link href={`/${locale}/patient/notifications`} className={linkClass}>
           {locale === 'ar' ? 'الإشعارات' : 'Notifications'}
         </Link>
+        <Link href="/account/password" className={linkClass}>
+          {locale === 'ar' ? 'حسابي' : 'My account'}
+        </Link>
+        <LogoutButton
+          callbackUrl={`/${locale}`}
+          label={locale === 'ar' ? 'تسجيل الخروج' : 'Log out'}
+          className={linkClass}
+        />
       </>
     );
   }

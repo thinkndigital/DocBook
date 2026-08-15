@@ -286,6 +286,17 @@ target through the tenant-scoped `Doctor`/`Staff` row (never a direct `User` loo
 `resetRepresentativePassword`/`resetTenantAdminPassword` need no such scoping since only
 `SUPER_ADMIN` holds those permissions.
 
+**Every portal exposes account/logout, not just the patient marketplace.** Each staff
+layout (`/admin`, `/tenant`, `/rep`, `/doctor`, `/supplier`) links `/account/password`
+("حسابي" — works as a voluntary password change too, not just the forced-change flow, see
+`PasswordForm`'s `required` prop) and renders `<LogoutButton>` (`src/components/auth/
+logout-button.tsx`, wraps `next-auth/react`'s `signOut`). This was missing across every
+portal until it was noticed as a gap — `signOut` previously only fired from inside the
+forced-password-change flow, with no way to log out otherwise short of clearing cookies.
+`LogoutButton` takes a `callbackUrl` (defaults to `/login`; the marketplace `UserNav` passes
+`/${locale}` instead, since a patient signs in through the locale-prefixed form) — don't
+hardcode `/login` when reusing it under `/[locale]`.
+
 **Audit logging is append-only by construction** — `src/lib/audit.ts`'s `recordAudit()` is
 the only write path to `AuditLog`, there is no update/delete exposed anywhere. Never pass
 medical record *content* into `beforeState`/`afterState` — only that an access/change

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
+import { LogoutButton } from '@/components/auth/logout-button';
 
 import type { Metadata } from 'next';
 
@@ -42,8 +43,15 @@ export default async function TenantLayout({ children }: { children: React.React
               {item.label}
             </Link>
           ))}
+          <Link
+            href="/account/password"
+            className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
+          >
+            حسابي
+          </Link>
+          <LogoutButton className="whitespace-nowrap rounded-md px-3 py-2 text-right text-sm text-neutral-700 hover:bg-neutral-100" />
         </nav>
-        <div className="mt-4 hidden border-t border-neutral-200 px-2 pt-4 text-xs text-neutral-500 md:mt-8 md:block">
+        <div className="mt-4 border-t border-neutral-200 px-2 pt-4 text-xs text-neutral-500">
           {session.user.name} · {session.user.email}
         </div>
       </aside>
