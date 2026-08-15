@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions, type SessionUser } from '@/lib/auth';
 import { hasPermission, type Permission } from '@/types/rbac';
@@ -74,8 +75,12 @@ export async function withTenantAuthorizationAny<T>(
 
 /**
  * Server-component page equivalent of withTenantAuthorization — the /tenant/* layout
- * already redirects non-TENANT_ADMIN sessions, so this just fetches the session and runs
- * `fn` inside the caller's tenant context. Assumes the route is already guarded.
+ * already redirects sessions with no tenant role at all (neither TENANT_ADMIN nor
+ * RECEPTIONIST), so this just fetches the session and runs `fn` inside the caller's tenant
+ * context. Assumes the route is already guarded — but the layout only proves "some tenant
+ * staff role", not which one, so a page restricted to TENANT_ADMIN specifically (billing,
+ * staff, branches, doctors, services, analytics — see `requireTenantAdminPage`) must not
+ * rely on this alone.
  */
 export async function runInSessionTenant<T>(fn: () => Promise<T>): Promise<T> {
   const session = await getServerSession(authOptions);
@@ -83,4 +88,23 @@ export async function runInSessionTenant<T>(fn: () => Promise<T>): Promise<T> {
     throw new Error('runInSessionTenant called without a tenant-scoped session — is the page guarded?');
   }
   return runWithTenant({ tenantId: session.user.tenantId, bypass: false }, fn);
+}
+
+/**
+ * Page-level guard for the `/tenant/*` pages that only TENANT_ADMIN may see —
+ * RECEPTIONIST shares the `/tenant` layout (they need `/tenant/appointments` and
+ * `/tenant/insights`, whose APIs already accept `queue:manage`/`ai:clinic_insights`) but
+ * has none of `branch:manage`/`doctor:manage`/`staff:manage`/`service:manage`/
+ * `billing:manage_tenant`/`analytics:read_tenant`. Those pages call their service
+ * functions with no permission check of their own (`runInSessionTenant` only proves tenant
+ * *membership*, not which tenant role) — this must run first on each of them, or a
+ * receptionist who types the URL sees the clinic's staff list, billing history, and
+ * subscription plan.
+ */
+export async function requireTenantAdminPage() {
+  const session = await getServerSession(authOptions);
+  if (session?.user.role !== 'TENANT_ADMIN') {
+    redirect('/tenant/appointments');
+  }
+  return session;
 }

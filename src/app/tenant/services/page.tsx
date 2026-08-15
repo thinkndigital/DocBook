@@ -1,10 +1,11 @@
-import { runInSessionTenant } from '@/lib/api/tenant-scope';
+import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
 import { listServices } from '@/lib/services/catalog';
 import { NewServiceForm } from './new-service-form';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ServicesPage() {
+  await requireTenantAdminPage();
   const services = await runInSessionTenant(() => listServices());
 
   return (

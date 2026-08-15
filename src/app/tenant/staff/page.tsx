@@ -1,4 +1,4 @@
-import { runInSessionTenant } from '@/lib/api/tenant-scope';
+import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
 import { listStaff } from '@/lib/services/staff';
 import { listBranches } from '@/lib/services/branches';
 import { ResetPasswordButton } from '@/components/admin/reset-password-button';
@@ -7,6 +7,7 @@ import { NewStaffForm } from './new-staff-form';
 export const dynamic = 'force-dynamic';
 
 export default async function StaffPage() {
+  await requireTenantAdminPage();
   const [staff, branches] = await Promise.all([
     runInSessionTenant(() => listStaff()),
     runInSessionTenant(() => listBranches()),

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { runInSessionTenant } from '@/lib/api/tenant-scope';
+import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
 import { listBranches } from '@/lib/services/branches';
 import { listDoctors } from '@/lib/services/doctors';
 import { listSpecialties } from '@/lib/services/specialties';
@@ -22,6 +22,7 @@ const VERIFICATION_LABEL: Record<string, string> = {
 };
 
 export default async function DoctorsPage() {
+  await requireTenantAdminPage();
   const [doctors, branches, specialties] = await Promise.all([
     runInSessionTenant(() => listDoctors()),
     runInSessionTenant(() => listBranches()),

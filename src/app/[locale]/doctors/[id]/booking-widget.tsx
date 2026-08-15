@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
@@ -46,6 +46,16 @@ export function BookingWidget({ locale, dict, doctorId, branches, services }: Pr
     const body = await res.json();
     setSlots(body.data.slots);
   }
+
+  // Without this, every first-time visitor saw "no slots available" until they touched a
+  // dropdown — fetchSlots was only ever wired to onChange handlers, never called for the
+  // branch/date the form already opens with. `[]` deps is deliberate: the onChange handlers
+  // below already call fetchSlots on every subsequent change, so depending on
+  // branchId/date here would double-fetch.
+  useEffect(() => {
+    fetchSlots(branchId, date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleConfirm() {
     if (!selectedSlot) return;

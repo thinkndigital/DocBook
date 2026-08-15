@@ -37,7 +37,12 @@ declare module 'next-auth/jwt' {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
-    maxAge: 15 * 60, // access token lifetime; refresh handled by NextAuth's JWT rotation
+    // Sliding session, not a hard 15-minute cutoff: NextAuth re-signs the JWT with a fresh
+    // expiry on any session read (default updateAge = 24h) while `next-auth/react`'s
+    // SessionProvider polls in the background, so an active user stays signed in
+    // indefinitely and a genuinely idle one is logged out after 15 minutes. There is no
+    // separate refresh token — the credentials provider only ever issues this one JWT.
+    maxAge: 15 * 60,
   },
   providers: [
     CredentialsProvider({

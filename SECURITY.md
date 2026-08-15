@@ -6,8 +6,14 @@ Healthcare data. Treated as sensitive by default — see §12, §28, §40 of the
 
 - **Password hashing**: bcrypt (cost 12) via `src/lib/auth.ts`. Never store plaintext;
   never log password fields.
-- **Session/tokens**: NextAuth JWT session, short-lived access token (15 min) +
-  rotating refresh token (7 days), both httpOnly + `SameSite=Lax` cookies.
+- **Session/tokens**: NextAuth JWT session (httpOnly + `SameSite=Lax` cookie), `maxAge`
+  15 minutes. This is a sliding window, not a hard cutoff — NextAuth re-signs the JWT with
+  a fresh expiry on every session read (default `updateAge` 24h), so an active user stays
+  signed in and a genuinely idle one is logged out after 15 minutes. There is no separate
+  refresh token; the credentials provider issues only this one JWT. A tenant suspension
+  (see below) blocks new logins immediately but, being JWT-based, does not revoke an
+  already-issued session — the exposure window is bounded by the same 15-minute idle
+  timeout, an accepted tradeoff rather than a gap.
 - **RBAC enforcement**: every API route handler calls `authorize(session, permission)`
   from `src/lib/rbac.ts` before touching the DB. Denials return 403 and are not silently
   swallowed.

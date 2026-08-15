@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return okResponse(
         {
           tenant,
-          admin: { id: adminUser.id, email: adminUser.email, defaultPasswordAssigned: true },
+          admin: { id: adminUser.id, email: adminUser.email, mustChangePassword: adminUser.mustChangePassword },
         },
         201
       );

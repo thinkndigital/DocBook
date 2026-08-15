@@ -11,7 +11,7 @@ import type { Metadata } from 'next';
  */
 export const metadata: Metadata = { robots: { index: false, follow: false, nocache: true } };
 
-const NAV = [
+const TENANT_ADMIN_ONLY_NAV = [
   { href: '/tenant', label: 'نظرة عامة' },
   { href: '/tenant/appointments', label: 'المواعيد والطابور' },
   { href: '/tenant/branches', label: 'الفروع' },
@@ -23,11 +23,28 @@ const NAV = [
   { href: '/tenant/insights', label: 'رؤى تشغيلية' },
 ];
 
+/**
+ * A receptionist has `queue:manage`/`appointment:create_for_patient`/`patient:register`/
+ * `ai:clinic_insights` — real permissions the API already accepts (see
+ * `/api/v1/tenant/appointments`) — but until now the layout below turned every RECEPTIONIST
+ * session away at the door before any of that mattered: `if (role !== 'TENANT_ADMIN')
+ * redirect('/')`. Nothing else changed to make room for this; the pages a receptionist must
+ * not reach (branches/doctors/staff/services/billing/analytics) call their service
+ * functions with no permission check of their own — see `requireTenantAdminPage` — so
+ * broadening this without adding those guards would have leaked billing/staff data instead.
+ */
+const RECEPTIONIST_NAV = [
+  { href: '/tenant/appointments', label: 'المواعيد والطابور' },
+  { href: '/tenant/insights', label: 'رؤى تشغيلية' },
+];
+
 export default async function TenantLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
   if (!session) redirect('/login?callbackUrl=/tenant');
-  if (session.user.role !== 'TENANT_ADMIN') redirect('/');
+  if (session.user.role !== 'TENANT_ADMIN' && session.user.role !== 'RECEPTIONIST') redirect('/');
+
+  const NAV = session.user.role === 'TENANT_ADMIN' ? TENANT_ADMIN_ONLY_NAV : RECEPTIONIST_NAV;
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">

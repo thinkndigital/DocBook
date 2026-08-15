@@ -1,7 +1,5 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { runInSessionTenant } from '@/lib/api/tenant-scope';
+import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
 import { listBranches } from '@/lib/services/branches';
 import { listCities } from '@/lib/services/geography';
 import { NewBranchForm } from './new-branch-form';
@@ -9,7 +7,7 @@ import { NewBranchForm } from './new-branch-form';
 export const dynamic = 'force-dynamic';
 
 export default async function BranchesPage() {
-  const session = await getServerSession(authOptions);
+  const session = await requireTenantAdminPage();
   const tenant = await db.tenant.findUnique({ where: { id: session!.user.tenantId! } });
   const [branches, cities] = await Promise.all([
     runInSessionTenant(() => listBranches()),

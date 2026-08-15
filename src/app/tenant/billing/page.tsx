@@ -1,8 +1,6 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { runInSessionTenant } from '@/lib/api/tenant-scope';
+import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
 import { getCurrentSubscription } from '@/lib/services/subscriptions';
 import { listPlans } from '@/lib/services/plans';
 import { listTenantPayments } from '@/lib/services/payments';
@@ -29,7 +27,7 @@ const ENTITY_LABEL: Record<string, string> = {
 };
 
 export default async function TenantBillingPage() {
-  const session = await getServerSession(authOptions);
+  const session = await requireTenantAdminPage();
   const tenantId = session!.user.tenantId!;
 
   const [subscription, plans, payments, commissions] = await Promise.all([

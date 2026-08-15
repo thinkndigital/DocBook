@@ -376,6 +376,54 @@ the last unit can't both succeed. Order status follows a fixed transition map
 (`ALLOWED_ORDER_TRANSITIONS`) enforced only on the supplier side — a doctor can never set
 their own order to `CONFIRMED`/`SHIPPED`/`DELIVERED`, only place it.
 
+## Findings from a full-system audit (all fixed)
+
+A live audit against a real seeded Postgres — every role logged in, every nav route hit,
+booking/telemedicine/equipment flows exercised end-to-end via the actual APIs, and a
+Playwright pass against a **production build** (dev-mode CSP `unsafe-eval` console noise
+from React Fast Refresh is not a real bug — only trust page-error/error-boundary signals
+from `next build` + `next start`) — found two real defects, both fixed:
+
+**RECEPTIONIST had real permissions and zero pages to use them from.** `/tenant/layout.tsx`
+gated the entire portal on `role === 'TENANT_ADMIN'`, so a receptionist — who has
+`queue:manage`/`appointment:create_for_patient`/`patient:register`/`ai:clinic_insights`
+and whose actions `/tenant/appointments`'s API already accepted — was redirected to `/`
+before any of that mattered. Fixed by letting `RECEPTIONIST` into the layout too, with a
+role-conditional nav (only "المواعيد والطابور" and "رؤى تشغيلية", matching their actual
+permissions) and a new `requireTenantAdminPage()` guard
+(`src/lib/api/tenant-scope.ts`) added to the six pages that must stay TENANT_ADMIN-only
+(branches/doctors/staff/services/billing/analytics) — **required** because those pages call
+`runInSessionTenant()`, which proves tenant *membership* only, not which tenant role;
+broadening the layout without also adding that guard would have let a receptionist read
+the clinic's staff list and billing history by typing the URL. `canRefund` in
+`appointment-actions`/`payment-button` was already correctly role-gated to TENANT_ADMIN
+before this fix — a sign the page itself was built receptionist-aware and only the layout
+gate was ever missing.
+
+**The public booking widget never fetched availability on load.** `fetchSlots` in
+`src/app/[locale]/doctors/[id]/booking-widget.tsx` was wired only to the branch-select and
+date-input `onChange` handlers — never called with the form's own initial defaults, so
+every first-time visitor to a doctor's profile saw "no slots available" until they touched
+a dropdown, regardless of real availability. Fixed with a mount-only `useEffect` (`[]`
+deps, deliberately not depending on `branchId`/`date` — the `onChange` handlers already
+call `fetchSlots` on every subsequent change, so depending on them here would double-fetch).
+The two *other* availability-fetching forms (`rep/book/rep-booking-form.tsx`,
+`tenant/appointments/new-appointment-form.tsx`) do NOT have this bug — both start with a
+genuinely empty selection (no tenant/doctor picked yet), unlike the patient widget where
+the doctor is already known from the URL.
+
+**Also corrected**: `POST /api/v1/admin/tenants` hardcoded `defaultPasswordAssigned: true`
+in its response even when the caller supplied a custom `adminInitialPassword` — the account
+itself was always created correctly (`mustChangePassword` reflected the real choice), only
+the response lied about it. Now returns the real `adminUser.mustChangePassword`. And
+SECURITY.md's session claim ("rotating refresh token (7 days)") didn't match the code —
+there is no refresh token, just a sliding JWT (`maxAge` 15 min, NextAuth's default
+`updateAge` 24h re-signs it on activity); corrected there and in `src/lib/auth.ts`'s comment.
+
+**Verified working, not touched**: tenant suspension blocks new logins immediately but
+does not revoke an already-issued JWT (bounded by the same 15-minute idle timeout) — this
+is the documented, accepted scope of a stateless JWT session, not a gap to close here.
+
 ## Provider abstractions (mostly not implemented yet)
 
 The brief requires payments, notifications, storage, and AI to be swappable, not hard-coded
