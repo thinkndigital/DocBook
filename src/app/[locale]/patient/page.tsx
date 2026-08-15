@@ -10,6 +10,7 @@ import { AssistantPanel } from './assistant-panel';
 export const dynamic = 'force-dynamic';
 
 const CANCELLABLE = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_QUEUE'];
+const JOINABLE_CALL_STATUSES = ['CONFIRMED', 'CHECKED_IN', 'IN_QUEUE', 'CALLED', 'IN_CONSULTATION'];
 const STATUS_TONE: Record<string, 'neutral' | 'success' | 'warning' | 'danger'> = {
   PENDING: 'warning',
   CONFIRMED: 'success',
@@ -48,6 +49,14 @@ export default async function PatientDashboardPage({ params }: { params: { local
         </div>
         <div className="flex items-center gap-2">
           <Badge tone={STATUS_TONE[appt.status]}>{dict.patientDashboard.status[appt.status] ?? appt.status}</Badge>
+          {appt.type === 'VIDEO' && JOINABLE_CALL_STATUSES.includes(appt.status) && (
+            <a
+              href={`/${params.locale}/patient/appointments/${appt.id}/video`}
+              className="whitespace-nowrap rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+            >
+              الانضمام للمكالمة
+            </a>
+          )}
           {CANCELLABLE.includes(appt.status) && <CancelButton appointmentId={appt.id} dict={dict} />}
         </div>
       </div>

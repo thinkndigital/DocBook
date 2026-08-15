@@ -25,6 +25,7 @@ export function NewServiceForm() {
         nameAr: form.get('nameAr'),
         priceMinor: Math.round(Number(form.get('price')) * 100),
         durationMinutes: Number(form.get('durationMinutes')),
+        type: form.get('type'),
       }),
     });
 
@@ -54,6 +55,17 @@ export function NewServiceForm() {
       <Input name="nameAr" placeholder="اسم الخدمة (عربي)" required />
       <Input name="price" type="number" step="0.01" min="0" placeholder="السعر (JOD)" required />
       <Input name="durationMinutes" type="number" min="5" max="480" placeholder="المدة (دقيقة)" required />
+      <select
+        name="type"
+        defaultValue="IN_PERSON"
+        className="col-span-2 rounded-md border border-neutral-300 px-3 py-2 text-sm"
+      >
+        <option value="IN_PERSON">حضوري</option>
+        <option value="VIDEO">مكالمة فيديو (عن بعد)</option>
+        <option value="FOLLOW_UP">متابعة</option>
+        <option value="EMERGENCY">طارئ</option>
+        <option value="HOME_VISIT">زيارة منزلية</option>
+      </select>
       {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
       <div className="col-span-2 flex gap-2">
         <Button type="submit" disabled={submitting}>

@@ -916,9 +916,32 @@ model VideoSession {
   startedAt       DateTime?
   endedAt         DateTime?
 
-  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  appointment Appointment   @relation(fields: [appointmentId], references: [id])
+  signals     VideoSignal[]
 
   @@map("video_sessions")
+}
+
+/// Self-hosted WebRTC signaling — no video vendor is configured (see ARCHITECTURE.md), so
+/// SDP offers/answers and ICE candidates are relayed through short-poll reads of this table
+/// instead of a vendor's signaling channel. One row per message; `seq` (not `id`, which is a
+/// random UUID) is what a poller cursors on, since it's the only column guaranteed ordered.
+/// No tenantId here deliberately — same as VideoSession itself: a call's only two
+/// legitimate readers are the doctor and patient on the appointment, checked explicitly in
+/// src/lib/services/video.ts, not by tenant membership.
+model VideoSignal {
+  id             String   @id @default(uuid())
+  seq            Int      @default(autoincrement())
+  videoSessionId String
+  fromRole       String // 'DOCTOR' | 'PATIENT'
+  kind           String // 'offer' | 'answer' | 'ice-candidate'
+  payload        Json
+  createdAt      DateTime @default(now())
+
+  videoSession VideoSession @relation(fields: [videoSessionId], references: [id])
+
+  @@index([videoSessionId, seq])
+  @@map("video_signals")
 }
 
 // ---------- AI (Phase 10) ----------

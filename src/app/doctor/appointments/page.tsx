@@ -1,8 +1,11 @@
 import { getServerSession } from 'next-auth';
+import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
 import { listOwnDoctorAppointments } from '@/lib/services/appointments';
 import { AppointmentActions } from '@/app/tenant/appointments/appointment-actions';
+
+const JOINABLE_CALL_STATUSES = ['CONFIRMED', 'CHECKED_IN', 'IN_QUEUE', 'CALLED', 'IN_CONSULTATION'];
 
 export const dynamic = 'force-dynamic';
 
@@ -106,7 +109,17 @@ export default async function DoctorAppointmentsPage({ searchParams }: { searchP
                   <Badge tone={STATUS_TONE[appt.status]}>{STATUS_LABEL[appt.status]}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <AppointmentActions appointmentId={appt.id} status={appt.status} />
+                  <div className="flex items-center gap-2">
+                    {appt.type === 'VIDEO' && JOINABLE_CALL_STATUSES.includes(appt.status) && (
+                      <Link
+                        href={`/doctor/appointments/${appt.id}/call`}
+                        className="whitespace-nowrap rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                      >
+                        الانضمام للمكالمة
+                      </Link>
+                    )}
+                    <AppointmentActions appointmentId={appt.id} status={appt.status} />
+                  </div>
                 </td>
               </tr>
             ))}

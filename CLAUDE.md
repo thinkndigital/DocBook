@@ -318,6 +318,31 @@ time too, not just at display time. `regenerateTenantInviteCode` (exposed to `TE
 at `/api/v1/tenant/invite-code`, shown on `/tenant`) rotates it — the old code stops working
 immediately, same revocation model as the calendar feed token.
 
+**Telemedicine is self-hosted WebRTC, not a video vendor.** No `TWILIO_*`/`DAILY_*` keys are
+configured, so signaling is a short-poll relay through a new `video_signals` table
+(`src/lib/services/video.ts`) instead of a vendor's channel — deliberately DB-backed rather
+than an in-memory pub/sub or SSE stream, because Cloud Run can run several instances and an
+in-memory channel only reaches clients polling the same one (same lesson as the rate
+limiter). `VideoSession` (schema since Phase 1, never wired up until now) still has no
+`tenantId` — same as the original design — so it isn't reached through `runWithTenant`;
+`resolveParticipant` in `video.ts` is the *only* access-control point, checking the caller
+is literally the doctor or patient on that specific appointment, not merely same-tenant
+staff (unlike `assertCanModify` in `appointments.ts`, which does allow same-tenant staff —
+that check is deliberately not reused here, a call is doctor+patient only). The doctor
+always creates the SDP offer, the patient always answers — a fixed, arbitrary convention so
+both sides don't race. STUN-only by default (`STUN_SERVER_URLS` env, defaults to Google's
+public STUN) — no TURN server is configured, so a call can fail behind strict symmetric NAT;
+add a TURN URL to that env var if that turns out to matter, nothing else needs to change.
+
+**An appointment's `type` comes from the `Service` being booked, not from the client.**
+`Service.type` (schema since Phase 1) already lets a tenant mark a service as `VIDEO` when
+creating it (`new-service-form.tsx`); `createAppointment` reads `service.type` for the
+appointment it creates rather than trusting `input.type` from the request — the field still
+exists on the request schema but is ignored, closing a mismatch where a client could
+request `VIDEO` against an in-person service (or vice versa) and get an appointment nobody
+expected to need a call for. `createAppointment` creates the matching `VideoSession` in the
+same transaction only when the resolved type is `VIDEO`.
+
 ## Provider abstractions (mostly not implemented yet)
 
 The brief requires payments, notifications, storage, and AI to be swappable, not hard-coded

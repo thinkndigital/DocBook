@@ -9,6 +9,7 @@ import { findPatientByEmail, registerPatient, PatientConflictError } from '@/lib
 import { getOwnRepresentative, assertRepAssignedToTenant } from '@/lib/services/representatives';
 import { dispatchNotificationAsync } from '@/lib/services/notifications';
 import type { NotificationEvent } from '@/lib/notifications/templates';
+import { createVideoSessionForAppointment } from '@/lib/services/video';
 
 type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 type AppointmentStatusInput = z.infer<typeof appointmentStatusSchema>;
@@ -200,8 +201,8 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
   try {
     const appointment = await withSerializationRetry(() =>
       db.$transaction(
-        async (tx) =>
-          tx.appointment.create({
+        async (tx) => {
+          const created = await tx.appointment.create({
             data: {
               tenantId,
               branchId: input.branchId,
@@ -210,7 +211,12 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
               serviceId: input.serviceId,
               bookedByUserId: actor.id,
               bookedByRepresentativeId: representativeId,
-              type: input.type,
+              // The service's own type is authoritative, not whatever the client sent —
+              // a clinic marks a service VIDEO by creating it that way (new-service-form.tsx),
+              // so the appointment (and whether a VideoSession gets created below) always
+              // matches what was actually booked, not a client-supplied claim that could
+              // mismatch it.
+              type: service.type,
               status: 'CONFIRMED',
               scheduledAt,
               durationMinutes,
@@ -220,7 +226,12 @@ export async function createAppointment(input: CreateAppointmentInput, actor: Se
               notes: input.notes,
             },
             include: APPOINTMENT_INCLUDE,
-          }),
+          });
+          if (created.type === 'VIDEO') {
+            await createVideoSessionForAppointment(tx, created.id);
+          }
+          return created;
+        },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       )
     );

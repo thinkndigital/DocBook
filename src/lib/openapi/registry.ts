@@ -12,6 +12,7 @@ import * as security from '@/lib/validation/security';
 import * as schedule from '@/lib/validation/schedule';
 import * as selfRegister from '@/lib/validation/self-register';
 import * as tenant from '@/lib/validation/tenant';
+import * as video from '@/lib/validation/video';
 import type { Permission } from '@/types/rbac';
 
 /**
@@ -206,6 +207,31 @@ export const ROUTES: Record<string, RouteMeta> = {
     body: appointment.rescheduleAppointmentSchema,
     tag: 'Patient',
   },
+  // ---- Video (telemedicine) ----
+  'POST /api/v1/video/{appointmentId}/join': {
+    summary:
+      'Doctor or patient joins their own VIDEO appointment. Returns the WebRTC room id and STUN server config; flips the session to WAITING_ROOM/IN_PROGRESS.',
+    auth: 'video_session:join_own',
+    tag: 'Video',
+  },
+  'POST /api/v1/video/{appointmentId}/end': {
+    summary: 'End the call. Either participant may end it — there is no host.',
+    auth: 'video_session:join_own',
+    tag: 'Video',
+  },
+  'GET /api/v1/video/{appointmentId}/signals': {
+    summary: "Short-poll for the other participant's SDP/ICE messages since a `seq` cursor.",
+    auth: 'video_session:join_own',
+    query: [{ name: 'after', description: 'Last seq received; defaults to 0.' }],
+    tag: 'Video',
+  },
+  'POST /api/v1/video/{appointmentId}/signals': {
+    summary: 'Relay one SDP offer/answer or ICE candidate to the other participant. Self-hosted signaling — no video vendor is configured.',
+    auth: 'video_session:join_own',
+    body: video.postVideoSignalSchema,
+    tag: 'Video',
+  },
+
   'GET /api/v1/patient/records': { summary: "The caller's own medical records.", auth: 'medical_record:read_own', tag: 'Patient' },
   'GET /api/v1/patient/prescriptions/{id}/pdf': {
     summary: 'Prescription PDF.',
