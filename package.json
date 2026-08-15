@@ -14,6 +14,7 @@
     "reference-data": "tsx prisma/reference-data.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",
     "normalize-emails": "tsx scripts/normalize-emails.ts",
+    "demo-data": "tsx scripts/demo-data.ts",
     "openapi": "tsx scripts/generate-openapi.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",

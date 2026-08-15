@@ -1,0 +1,97 @@
+name: Demo data
+
+# Manual only, and deliberately separate from "Bootstrap production data" — this writes
+# demo *accounts*, which bootstrap.yml explicitly refuses to do by running `prisma db seed`
+# (that script hashes DEFAULT_ASSIGNED_PASSWORD, a password committed to this repository,
+# into a database that may hold real patient records). scripts/demo-data.ts is the same
+# idea done safely instead:
+#
+#   - The password is never stored anywhere. It's the `demo_password` input below — typed
+#     at dispatch time, same trust model as bootstrap.yml's `promote_email` input (visible
+#     only to repo collaborators who can trigger this workflow) — hashed like any real
+#     password. There is no repo-committed equivalent of DEFAULT_ASSIGNED_PASSWORD here.
+#   - Every demo account's email ends in @docbook-demo.test (a reserved, non-resolving TLD)
+#     and the demo tenant/doctor are left unverified/unreviewed on purpose, so none of it
+#     ever appears in public search or the home page — see scripts/demo-data.ts for why.
+#   - `cleanup` removes every trace, including anything created while testing (bookings,
+#     records, orders) — not just the originally seeded rows.
+#
+# Run `seed` once, try the accounts, then run `cleanup` when done. Re-running `seed` while
+# demo accounts already exist fails on purpose rather than creating duplicates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'seed (create demo accounts) or cleanup (remove them and everything created while testing)'
+        type: choice
+        options:
+          - seed
+          - cleanup
+        default: seed
+      demo_password:
+        description: 'Password for all demo accounts (seed only, 8+ characters). Ignored for cleanup.'
+        type: string
+        default: ''
+
+jobs:
+  demo-data:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check configuration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Repository secret DATABASE_URL is not set."
+            exit 1
+          fi
+          if [ "${{ inputs.action }}" = "seed" ] && [ -z "${{ inputs.demo_password }}" ]; then
+            echo "::error::demo_password is required for action=seed."
+            exit 1
+          fi
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run demo-data (${{ inputs.action }})
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEMO_ACTION: ${{ inputs.action }}
+          DEMO_PASSWORD: ${{ inputs.demo_password }}
+        run: npm run demo-data
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Demo data — ${{ inputs.action }}"
+            echo ""
+            if [ "${{ inputs.action }}" = "seed" ]; then
+              echo "Demo accounts created (all @docbook-demo.test, same password you supplied):"
+              echo "- demo.clinic@docbook-demo.test — TENANT_ADMIN"
+              echo "- demo.reception@docbook-demo.test — RECEPTIONIST"
+              echo "- demo.doctor@docbook-demo.test — DOCTOR"
+              echo "- demo.patient@docbook-demo.test — PATIENT"
+              echo "- demo.rep@docbook-demo.test — REPRESENTATIVE"
+              echo "- demo.supplier@docbook-demo.test — SUPPLIER"
+              echo ""
+              echo "Not publicly listed — log in directly at /login (staff/doctor) or /ar/login (patient)."
+              echo "Run this workflow again with action=cleanup when done testing."
+            else
+              echo "All demo accounts and everything created under them (bookings, orders, etc.) removed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
