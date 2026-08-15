@@ -15,11 +15,20 @@ html {
  * and silently disabled `position: sticky` for everything inside it. `clip` trims the
  * overflow without creating a scroll container, so scrolling and sticky both keep working.
  *
+ * `overflow-y: visible` has to be explicit, not left to default. Per the CSS Overflow
+ * spec, an `overflow-x` that isn't `visible` paired with an `overflow-y` that *is* gets
+ * the y-axis silently computed to `auto` — turning `html` into a real y-axis scroll
+ * container distinct from the visual viewport. Mobile Safari/Chrome coordinate their
+ * retracting address bar with the true viewport, not with an inner scroll container, so
+ * that implicit `auto` is exactly what made the sticky header duck behind the URL bar on
+ * scroll — a second-order break from the same `overflow-x: clip` line, not a new bug.
+ *
  * This is a backstop for a missed wrapper, not permission to skip the per-element
  * `overflow-x-auto`: it clips content rather than letting it scroll into view.
  */
 html {
   overflow-x: clip;
+  overflow-y: visible;
 }
 
 /*
