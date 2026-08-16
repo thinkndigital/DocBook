@@ -158,6 +158,26 @@ export async function selfRegisterDoctor(input: SelfRegisterDoctorInput) {
           openingHours: {},
         },
       });
+      // A solo practice has no TENANT_ADMIN — the doctor created below only ever holds
+      // the DOCTOR role, which lacks `service:manage`. Without a bookable Service here,
+      // this doctor could never be booked through any flow: Appointment.serviceId is
+      // required and nothing else can create one for a tenant with no admin. The
+      // consultation price the form already collects is exactly the price this service
+      // needs, so this is what actually makes that field do something.
+      const country = await tx.country.findUnique({ where: { id: clinic.countryId } });
+      const specialty = await tx.specialty.findUnique({ where: { id: input.specialtyId } });
+      await tx.service.create({
+        data: {
+          tenantId: tenant.id,
+          specialtyId: input.specialtyId,
+          name: specialty ? `${specialty.name} Consultation` : 'Consultation',
+          nameAr: specialty ? `كشفية ${specialty.nameAr}` : 'كشفية',
+          priceMinor: input.consultationPriceMinor,
+          currency: country?.currency ?? 'JOD',
+          durationMinutes: 20,
+          type: 'IN_PERSON',
+        },
+      });
       return { tenant, branch };
     });
     tenantId = created.tenant.id;
