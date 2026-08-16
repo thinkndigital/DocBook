@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runInSessionTenant, requireTenantAdminPage } from '@/lib/api/tenant-scope';
-import { getCurrentSubscription } from '@/lib/services/subscriptions';
+import { getLatestSubscription } from '@/lib/services/subscriptions';
 import { listPlans } from '@/lib/services/plans';
 import { listTenantPayments } from '@/lib/services/payments';
 import { listTenantCommissions } from '@/lib/services/commissions';
@@ -31,7 +31,7 @@ export default async function TenantBillingPage() {
   const tenantId = session!.user.tenantId!;
 
   const [subscription, plans, payments, commissions] = await Promise.all([
-    getCurrentSubscription(tenantId),
+    getLatestSubscription(tenantId),
     listPlans(),
     runInSessionTenant(() => listTenantPayments()),
     runInSessionTenant(() => listTenantCommissions(tenantId)),
@@ -47,18 +47,39 @@ export default async function TenantBillingPage() {
 
       <Card className="mb-6">
         <h2 className="mb-3 font-semibold text-neutral-900">الاشتراك الحالي</h2>
-        {subscription ? (
+        {!subscription && <p className="mb-4 text-sm text-amber-700">لا يوجد اشتراك — اختر خطة أدناه.</p>}
+        {subscription && subscription.status === 'PAST_DUE' && (
+          <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm font-medium text-amber-800">
+              انتهت فترة اشتراككم في خطة {subscription.plan.name} بتاريخ{' '}
+              {subscription.currentPeriodEnd.toISOString().slice(0, 10)}.
+            </p>
+            <p className="mt-1 text-xs text-amber-700">
+              جميع ميزات المنصة تعمل بشكل طبيعي خلال فترة السماح — يرجى التجديد قريباً لتفادي إلغاء الاشتراك.
+            </p>
+          </div>
+        )}
+        {subscription && subscription.status === 'CANCELLED' && (
+          <div className="mb-4 rounded-md border border-neutral-300 bg-neutral-50 p-3">
+            <p className="text-sm font-medium text-neutral-800">
+              تم إلغاء اشتراككم السابق ({subscription.plan.name}) لعدم التجديد.
+            </p>
+            <p className="mt-1 text-xs text-neutral-600">جميع ميزات المنصة تعمل بشكل طبيعي — اختر خطة أدناه للاشتراك من جديد.</p>
+          </div>
+        )}
+        {subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIALING') && (
           <p className="mb-4 text-sm text-neutral-700">
             {subscription.plan.name} — تنتهي الفترة الحالية في{' '}
             {subscription.currentPeriodEnd.toISOString().slice(0, 10)} · عمولة الحجز{' '}
             {subscription.plan.bookingCommissionPct}%
           </p>
-        ) : (
-          <p className="mb-4 text-sm text-amber-700">لا يوجد اشتراك نشط — اختر خطة أدناه.</p>
         )}
         <PlanSwitcher
           plans={plans.filter((p) => p.isActive)}
-          currentPlanId={subscription?.planId ?? null}
+          // Only ACTIVE/TRIALING counts as "current" for disabling the switch button — a
+          // PAST_DUE or CANCELLED subscription's plan must stay clickable, since
+          // re-subscribing to the very same plan is exactly what renewing means.
+          currentPlanId={subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIALING') ? subscription.planId : null}
         />
       </Card>
 

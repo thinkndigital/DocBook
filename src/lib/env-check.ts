@@ -63,6 +63,18 @@ export function checkRequiredEnv(): void {
     if (!process.env.PAYTABS_SERVER_KEY) problems.push('  - PAYTABS_SERVER_KEY is missing or empty. From the PayTabs dashboard: Developers > Key management.');
   }
 
+  // Also a warning, not a failure, for the same reason: no external scheduler is set up yet
+  // is a missing *cron job*, not a missing secret the app itself needs to boot — booking,
+  // queue and records are entirely unaffected by subscriptions never expiring on schedule.
+  if (!process.env.CRON_SECRET) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[config] CRON_SECRET is not set — POST /api/v1/cron/subscriptions/tick will return ' +
+        '503 and no external scheduler can run it. Subscriptions will never expire or renew ' +
+        'automatically until this is configured. All other features are unaffected.'
+    );
+  }
+
   if (problems.length > 0) {
     throw new Error(
       `DocBook cannot start: ${problems.length} configuration problem(s).\n\n${problems.join('\n')}\n\n` +

@@ -43,11 +43,11 @@ async function resolveRule(entityType: CommissionEntityType, tenantId: string): 
  * is a data change, not a code change.
  *
  * Two deliberate design points:
- *  - The platform's cut comes from the tenant's ACTIVE subscription plan
- *    (`SubscriptionPlan.bookingCommissionPct`), which is what makes the SaaS model
+ *  - The platform's cut comes from the tenant's ACTIVE (or PAST_DUE — see below) subscription
+ *    plan (`SubscriptionPlan.bookingCommissionPct`), which is what makes the SaaS model
  *    coherent: the Free plan takes a booking commission, Pro/Enterprise take 0% and
  *    monetise through the subscription fee instead. A PLATFORM CommissionRule is the
- *    fallback when a tenant has no active subscription at all.
+ *    fallback when a tenant has no active (or grace-period) subscription at all.
  *  - The clinic receives the exact remainder rather than its own percentage, so the split
  *    always sums to the total to the fils and rounding can never mint or destroy money.
  */
@@ -60,8 +60,12 @@ export async function computeCommissionSplit(appointmentId: string): Promise<Com
   const shares: CommissionShare[] = [];
 
   // --- Platform ---
+  // PAST_DUE counts as ACTIVE here deliberately (Round 4E's "informational only" gating
+  // decision): a tenant in its post-expiry grace period keeps its plan's commission rate
+  // rather than silently falling back to the harsher PLATFORM default rule below. Only a
+  // fully CANCELLED subscription loses plan pricing.
   const subscription = await db.subscription.findFirst({
-    where: { tenantId, status: 'ACTIVE' },
+    where: { tenantId, status: { in: ['ACTIVE', 'PAST_DUE'] } },
     include: { plan: true },
     orderBy: { createdAt: 'desc' },
   });

@@ -19,7 +19,9 @@ export type NotificationEvent =
   | 'PAYMENT_REFUNDED'
   | 'PRESCRIPTION_ISSUED'
   | 'REVIEW_REQUEST'
-  | 'SUBSCRIPTION_RENEWAL';
+  | 'SUBSCRIPTION_RENEWAL'
+  | 'SUBSCRIPTION_PAST_DUE'
+  | 'SUBSCRIPTION_CANCELLED';
 
 export interface TemplateVars {
   patientName?: string;
@@ -87,8 +89,22 @@ const TEMPLATES: Catalogue = {
     en: { subject: 'How was your visit?', body: "We'd love your feedback on your visit to {doctorName} at {branchName}." },
   },
   SUBSCRIPTION_RENEWAL: {
-    ar: { subject: 'تجديد الاشتراك', body: 'سيتم تجديد اشتراك {clinicName} قريباً.' },
-    en: { subject: 'Subscription renewal', body: 'The subscription for {clinicName} is due for renewal soon.' },
+    ar: { subject: 'تجديد الاشتراك', body: 'ستنتهي فترة اشتراك {clinicName} قريباً. يرجى التجديد لتفادي انقطاع الخدمة.' },
+    en: { subject: 'Subscription renewal', body: "{clinicName}'s subscription period ends soon. Renew to avoid a service interruption." },
+  },
+  SUBSCRIPTION_PAST_DUE: {
+    ar: {
+      subject: 'انتهت فترة الاشتراك',
+      body: 'انتهت فترة اشتراك {clinicName} ولم يتم التجديد. يرجى التجديد خلال أيام لتفادي إلغاء الاشتراك.',
+    },
+    en: {
+      subject: 'Subscription past due',
+      body: "{clinicName}'s subscription period has ended without renewal. Renew within a few days to avoid cancellation.",
+    },
+  },
+  SUBSCRIPTION_CANCELLED: {
+    ar: { subject: 'تم إلغاء الاشتراك', body: 'تم إلغاء اشتراك {clinicName} لعدم التجديد. يمكن الاشتراك من جديد في أي وقت.' },
+    en: { subject: 'Subscription cancelled', body: "{clinicName}'s subscription was cancelled for non-renewal. You can subscribe again anytime." },
   },
 };
 
@@ -123,4 +139,6 @@ export const DEFAULT_CHANNELS: Record<NotificationEvent, Array<'IN_APP' | 'EMAIL
   PRESCRIPTION_ISSUED: ['IN_APP', 'EMAIL'],
   REVIEW_REQUEST: ['IN_APP', 'EMAIL'],
   SUBSCRIPTION_RENEWAL: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_PAST_DUE: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_CANCELLED: ['IN_APP', 'EMAIL'],
 };

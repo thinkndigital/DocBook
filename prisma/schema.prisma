@@ -751,6 +751,9 @@ model Subscription {
   status             SubscriptionStatus @default(TRIALING)
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
+  /// Set once the pre-expiry renewal reminder has gone out, so a periodic billing-cycle
+  /// tick doesn't resend it on every run. Null means "not sent yet".
+  reminderSentAt     DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 

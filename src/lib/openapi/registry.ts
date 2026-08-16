@@ -560,6 +560,14 @@ export const ROUTES: Record<string, RouteMeta> = {
     tag: 'Webhooks',
   },
 
+  // ---- Cron (external scheduler only, no session) ----
+  'POST /api/v1/cron/subscriptions/tick': {
+    summary:
+      'Runs one subscription-billing-cycle pass (renewal reminders, ACTIVE/TRIALING→PAST_DUE at expiry, PAST_DUE→CANCELLED after the grace period). Meant to be called daily by an external scheduler. Requires `Authorization: Bearer <CRON_SECRET>`. Idempotent — safe to call more often than needed.',
+    auth: 'public',
+    tag: 'Cron',
+  },
+
 
   // Present on disk, added after the generator caught them missing.
   'DELETE /api/v1/admin/representatives/{id}/assignments': {
