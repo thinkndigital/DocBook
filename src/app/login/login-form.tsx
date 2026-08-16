@@ -85,7 +85,7 @@ export function LoginForm() {
       </p>
       <p className="mt-2 text-center text-sm text-neutral-600">
         ليس لديك حساب؟{' '}
-        <a href="/ar/register" className="text-brand-700 hover:underline">
+        <a href="/ar/register" className="text-brand-700 underline hover:no-underline">
           سجّل كطبيب أو كعيادة أو مستشفى أو مورد تجهيزات
         </a>
       </p>
