@@ -69,6 +69,7 @@ export interface Dictionary {
     joinAsClinic: string;
     joinAsHospital: string;
     joinAsSupplier: string;
+    joinRepNote: string;
   };
   partner: {
     title: string;
@@ -267,6 +268,7 @@ const ar: Dictionary = {
     joinAsClinic: 'سجّل عيادتك',
     joinAsHospital: 'سجّل مستشفاك',
     joinAsSupplier: 'انضم كمورد تجهيزات',
+    joinRepNote: 'لدى DocBook أيضاً برنامج مندوبين ميدانيين يحجزون نيابةً عن المرضى لصالح العيادات المتعاقدة — يُضاف المندوبون من قبل إدارة المنصة، تواصل معنا لمعرفة المزيد.',
   },
   partner: {
     title: 'انضمّ إلى DocBook كجهة صحية',
@@ -476,6 +478,7 @@ const en: Dictionary = {
     joinAsClinic: 'Register your clinic',
     joinAsHospital: 'Register your hospital',
     joinAsSupplier: 'Join as a medical supplier',
+    joinRepNote: 'DocBook also runs a field representative program that books on behalf of patients for partner clinics — representatives are added by the platform team, so reach out to learn more.',
   },
   partner: {
     title: 'Join DocBook as a healthcare provider',

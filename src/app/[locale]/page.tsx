@@ -198,6 +198,7 @@ export default async function MarketplaceHomePage({ params }: { params: { locale
             {dict.home.joinAsSupplier}
           </Link>
         </div>
+        <p className="mt-4 text-xs text-neutral-500">{dict.home.joinRepNote}</p>
       </section>
 
       {/* The button leads to an application form, not a sign-up: no account is created and
