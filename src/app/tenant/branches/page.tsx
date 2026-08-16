@@ -28,7 +28,7 @@ export default async function BranchesPage() {
               {branch.address} — {branch.city.nameAr}
             </p>
             {branch.phone && <p className="mt-1 text-sm text-neutral-500">{branch.phone}</p>}
-            <p className="mt-2 text-xs text-neutral-400">
+            <p className="mt-2 text-xs text-neutral-500">
               {branch._count.doctorBranches} طبيب · {branch._count.staff} موظف
             </p>
           </div>

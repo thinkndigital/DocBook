@@ -97,7 +97,7 @@ export function PartnerForm({ locale, dict, countries, cities }: Props) {
         </div>
         <div>
           <label className={label} htmlFor="cityId">
-            {dict.partner.city} <span className="text-neutral-400">({dict.partner.cityOptional})</span>
+            {dict.partner.city} <span className="text-neutral-500">({dict.partner.cityOptional})</span>
           </label>
           <select id="cityId" name="cityId" className={field} defaultValue="">
             <option value="">—</option>

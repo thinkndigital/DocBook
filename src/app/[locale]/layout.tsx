@@ -6,6 +6,7 @@ import { UserNav } from '@/components/marketplace/user-nav';
 import { JsonLd } from '@/components/seo/json-ld';
 import { organizationJsonLd, webSiteJsonLd } from '@/lib/seo/json-ld';
 import { alternatesFor } from '@/lib/seo/site';
+import { HtmlLangSync } from './html-lang-sync';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -54,6 +55,7 @@ export default function LocaleLayout({
 
   return (
     <div dir={locale === 'ar' ? 'rtl' : 'ltr'} lang={locale} className="min-h-screen bg-neutral-50">
+      <HtmlLangSync locale={locale} />
       <JsonLd data={[organizationJsonLd(locale), webSiteJsonLd(locale)]} />
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
@@ -68,7 +70,7 @@ export default function LocaleLayout({
               {dict.symptomCheck.navLabel}
             </Link>
             <UserNav locale={locale} dict={dict} />
-            <Link href={`/${otherLocale}`} className="whitespace-nowrap text-neutral-400 hover:text-brand-700">
+            <Link href={`/${otherLocale}`} className="whitespace-nowrap text-neutral-500 hover:text-brand-700">
               {otherLocale === 'ar' ? 'العربية' : 'English'}
             </Link>
           </nav>

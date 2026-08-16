@@ -67,7 +67,7 @@ export default async function DoctorAppointmentsPage({ searchParams }: { searchP
           الغد
         </a>
       </div>
-      <form className="mb-6 flex gap-3" method="get">
+      <form className="mb-6 flex flex-wrap gap-3" method="get">
         <input
           type="date"
           name="date"

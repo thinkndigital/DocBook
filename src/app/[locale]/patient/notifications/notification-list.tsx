@@ -73,7 +73,7 @@ export function NotificationList({
                 <p className="text-sm font-medium text-neutral-900">{n.payload?.subject ?? n.type}</p>
                 <p className="mt-1 text-sm text-neutral-700">{n.payload?.body}</p>
               </div>
-              <span className="shrink-0 text-xs text-neutral-400">{n.createdAt.slice(0, 10)}</span>
+              <span className="shrink-0 text-xs text-neutral-500">{n.createdAt.slice(0, 10)}</span>
             </div>
           </li>
         ))}

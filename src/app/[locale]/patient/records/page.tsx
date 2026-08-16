@@ -76,7 +76,7 @@ export default async function PatientRecordsPage({ params }: { params: { locale:
                 </div>
                 {r.diagnosis && <p className="text-sm font-medium text-neutral-900">{r.diagnosis}</p>}
                 {r.notes && <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{r.notes}</p>}
-                {r.doctor && <p className="mt-1 text-xs text-neutral-400">{r.doctor.user.name}</p>}
+                {r.doctor && <p className="mt-1 text-xs text-neutral-500">{r.doctor.user.name}</p>}
               </li>
             ))}
           </ul>

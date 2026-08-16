@@ -66,7 +66,7 @@ export default async function AppointmentsPage({
 
       <NewAppointmentForm branches={branches} doctors={doctors} services={services} />
 
-      <form className="mb-4 flex gap-3" method="get">
+      <form className="mb-4 flex flex-wrap gap-3" method="get">
         <input
           type="date"
           name="date"

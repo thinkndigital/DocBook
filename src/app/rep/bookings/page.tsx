@@ -29,7 +29,7 @@ export default async function RepBookingsPage({ searchParams }: { searchParams: 
     <div>
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">حجوزاتي</h1>
 
-      <form className="mb-4 flex gap-3" method="get">
+      <form className="mb-4 flex flex-wrap gap-3" method="get">
         <input type="date" name="date" defaultValue={searchParams.date} className="rounded-md border border-neutral-300 px-3 py-2 text-sm" />
         <button type="submit" className="rounded-md bg-neutral-800 px-4 py-2 text-sm text-white">
           تصفية

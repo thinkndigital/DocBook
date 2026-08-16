@@ -55,7 +55,7 @@ export function MarketplaceLoginForm({ locale, dict }: { locale: Locale; dict: D
       </form>
       <p className="mt-4 text-center text-sm text-neutral-600">
         {dict.auth.dontHaveAccount}{' '}
-        <a href={`/${locale}/register`} className="text-brand-700 hover:underline">
+        <a href={`/${locale}/register`} className="text-brand-700 underline hover:no-underline">
           {dict.auth.registerCta}
         </a>
       </p>

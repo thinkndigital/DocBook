@@ -67,7 +67,7 @@ export function RegisterForm({ locale, dict, countries, cities, specialties }: P
 
       <p className="mt-4 text-center text-sm text-neutral-600">
         {dict.auth.alreadyHaveAccount}{' '}
-        <a href={`/${locale}/login`} className="text-brand-700 hover:underline">
+        <a href={`/${locale}/login`} className="text-brand-700 underline hover:no-underline">
           {dict.auth.loginCta}
         </a>
       </p>
