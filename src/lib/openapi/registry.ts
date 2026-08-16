@@ -493,6 +493,30 @@ export const ROUTES: Record<string, RouteMeta> = {
   'GET /api/v1/admin/commission-rules': { summary: 'Commission rules. Percentages are data, never hard-coded.', auth: 'commission_rule:manage', tag: 'Admin' },
   'POST /api/v1/admin/commission-rules': { summary: 'Create a commission rule.', auth: 'commission_rule:manage', body: billing.commissionRuleSchema, tag: 'Admin' },
   'GET /api/v1/admin/stats': { summary: 'Headline platform counters.', auth: 'tenant:manage_all', tag: 'Admin' },
+  'GET /api/v1/admin/audit-logs': {
+    summary: 'Cross-tenant audit log, read-only (append-only by construction — no write path exists here or anywhere else).',
+    auth: 'audit_log:read',
+    query: [
+      { name: 'action', description: 'Exact action name, e.g. REVIEW_APPROVED.', required: false },
+      { name: 'entityType', description: 'Exact entity type, e.g. Appointment.', required: false },
+      { name: 'tenantId', description: 'Filter to one tenant.', required: false },
+      { name: 'actorUserId', description: 'Filter to one actor.', required: false },
+    ],
+    tag: 'Admin',
+  },
+  'GET /api/v1/admin/appointments/search': {
+    summary:
+      'Cross-tenant appointment lookup for support (by id, or patient/doctor name/email). Operational fields only — never clinical notes.',
+    auth: 'appointment:read_all',
+    query: [{ name: 'query', description: 'Appointment id, or patient/doctor name or patient email.', required: true }],
+    tag: 'Admin',
+  },
+  'GET /api/v1/admin/users/search': {
+    summary: 'Cross-tenant user lookup for support (by name/email). Never returns passwordHash or 2FA secrets.',
+    auth: 'user:read_all',
+    query: [{ name: 'query', description: 'Name or email.', required: true }],
+    tag: 'Admin',
+  },
   'GET /api/v1/admin/analytics': { summary: 'Platform analytics. Runs with no tenant context by design.', auth: 'tenant:manage_all', query: RANGE_QUERY, tag: 'Analytics' },
 
   // ---- Notifications ----

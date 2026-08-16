@@ -82,6 +82,8 @@ export type Permission =
   | 'commission_rule:manage'
   | 'cms:manage'
   | 'audit_log:read'
+  | 'appointment:read_all'
+  | 'user:read_all'
   | 'system_setting:manage';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
