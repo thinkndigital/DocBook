@@ -63,6 +63,12 @@ export interface Dictionary {
     clinicsTitle: string;
     clinicsBody: string;
     clinicsCta: string;
+    joinTitle: string;
+    joinBody: string;
+    joinAsDoctor: string;
+    joinAsClinic: string;
+    joinAsHospital: string;
+    joinAsSupplier: string;
   };
   partner: {
     title: string;
@@ -255,6 +261,12 @@ const ar: Dictionary = {
     clinicsTitle: 'عيادة أو مستشفى؟',
     clinicsBody: 'DocBook يدير المواعيد والطابور والفوترة والسجلات الطبية لفريقك.',
     clinicsCta: 'قدّم طلب انضمام',
+    joinTitle: 'انضم إلى DocBook',
+    joinBody: 'أنشئ حسابك الآن — بدون انتظار موافقة إدارية.',
+    joinAsDoctor: 'انضم كطبيب',
+    joinAsClinic: 'سجّل عيادتك',
+    joinAsHospital: 'سجّل مستشفاك',
+    joinAsSupplier: 'انضم كمورد تجهيزات',
   },
   partner: {
     title: 'انضمّ إلى DocBook كجهة صحية',
@@ -458,6 +470,12 @@ const en: Dictionary = {
     clinicsTitle: 'Run a clinic or hospital?',
     clinicsBody: 'DocBook handles appointments, the waiting queue, billing and medical records for your team.',
     clinicsCta: 'Apply to join',
+    joinTitle: 'Join DocBook',
+    joinBody: 'Create your account now — no admin approval to wait for.',
+    joinAsDoctor: 'Join as a doctor',
+    joinAsClinic: 'Register your clinic',
+    joinAsHospital: 'Register your hospital',
+    joinAsSupplier: 'Join as a medical supplier',
   },
   partner: {
     title: 'Join DocBook as a healthcare provider',

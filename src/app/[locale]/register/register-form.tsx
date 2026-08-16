@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { Dictionary, Locale } from '@/lib/i18n/dictionaries';
 import { Card } from '@/components/ui/card';
 import { PatientRegisterForm } from './patient-register-form';
@@ -9,6 +10,7 @@ import { ClinicRegisterForm } from './clinic-register-form';
 import { SupplierRegisterForm } from './supplier-register-form';
 
 type Role = 'PATIENT' | 'DOCTOR' | 'CLINIC' | 'SUPPLIER';
+const VALID_ROLES: Role[] = ['PATIENT', 'DOCTOR', 'CLINIC', 'SUPPLIER'];
 
 interface Props {
   locale: Locale;
@@ -19,7 +21,13 @@ interface Props {
 }
 
 export function RegisterForm({ locale, dict, countries, cities, specialties }: Props) {
-  const [role, setRole] = useState<Role>('PATIENT');
+  const searchParams = useSearchParams();
+  // Lets landing-page "join as X" CTAs deep-link straight to the right tab (?role=DOCTOR etc.)
+  // instead of always landing on the patient tab regardless of what was clicked.
+  const requestedRole = searchParams.get('role')?.toUpperCase();
+  const initialRole = VALID_ROLES.includes(requestedRole as Role) ? (requestedRole as Role) : 'PATIENT';
+  const initialClinicType = searchParams.get('type') === 'HOSPITAL' ? 'HOSPITAL' : undefined;
+  const [role, setRole] = useState<Role>(initialRole);
   const nameKey: 'name' | 'nameAr' = locale === 'ar' ? 'nameAr' : 'name';
 
   const tabs: Array<{ id: Role; label: string }> = [
@@ -52,7 +60,9 @@ export function RegisterForm({ locale, dict, countries, cities, specialties }: P
       {role === 'DOCTOR' && (
         <DoctorRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} specialties={specialties} />
       )}
-      {role === 'CLINIC' && <ClinicRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} />}
+      {role === 'CLINIC' && (
+        <ClinicRegisterForm dict={dict} nameKey={nameKey} countries={countries} cities={cities} initialType={initialClinicType} />
+      )}
       {role === 'SUPPLIER' && <SupplierRegisterForm dict={dict} nameKey={nameKey} countries={countries} />}
 
       <p className="mt-4 text-center text-sm text-neutral-600">

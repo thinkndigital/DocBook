@@ -12,9 +12,10 @@ interface Props {
   nameKey: 'name' | 'nameAr';
   countries: Array<{ id: string; name: string; nameAr: string }>;
   cities: Array<{ id: string; name: string; nameAr: string; countryId: string }>;
+  initialType?: 'HOSPITAL';
 }
 
-export function ClinicRegisterForm({ dict, nameKey, countries, cities }: Props) {
+export function ClinicRegisterForm({ dict, nameKey, countries, cities, initialType }: Props) {
   const router = useRouter();
   const t = dict.registerRoles;
   const [countryId, setCountryId] = useState(countries[0]?.id ?? '');
@@ -84,7 +85,7 @@ export function ClinicRegisterForm({ dict, nameKey, countries, cities }: Props) 
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <label className={label} htmlFor="type">{t.clinicType}</label>
-        <select id="type" name="type" className={field} defaultValue="CLINIC">
+        <select id="type" name="type" className={field} defaultValue={initialType ?? 'CLINIC'}>
           <option value="CLINIC">{t.clinic}</option>
           <option value="MEDICAL_CENTER">{t.medicalCenter}</option>
           <option value="HOSPITAL">{t.hospital}</option>

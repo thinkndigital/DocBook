@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
 import { listPublicCities, listPublicSpecialties } from '@/lib/services/marketplace';
 import { db } from '@/lib/db';
@@ -25,12 +26,17 @@ export default async function RegisterPage({ params }: { params: { locale: Local
   }
 
   return (
-    <RegisterForm
-      locale={params.locale}
-      dict={dict}
-      countries={countries}
-      cities={cities.map((c) => ({ id: c.id, name: c.name, nameAr: c.nameAr, countryId: c.countryId }))}
-      specialties={specialties.map((s) => ({ id: s.id, name: s.name, nameAr: s.nameAr }))}
-    />
+    // useSearchParams() inside RegisterForm (reads ?role=/&type= for the landing page's "join
+    // as X" deep links) requires a Suspense boundary or Next.js bails this route out of static
+    // rendering entirely at build time.
+    <Suspense fallback={null}>
+      <RegisterForm
+        locale={params.locale}
+        dict={dict}
+        countries={countries}
+        cities={cities.map((c) => ({ id: c.id, name: c.name, nameAr: c.nameAr, countryId: c.countryId }))}
+        specialties={specialties.map((s) => ({ id: s.id, name: s.name, nameAr: s.nameAr }))}
+      />
+    </Suspense>
   );
 }

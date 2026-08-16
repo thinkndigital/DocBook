@@ -165,6 +165,41 @@ export default async function MarketplaceHomePage({ params }: { params: { locale
         </section>
       )}
 
+      {/* Doctors/clinics/hospitals/suppliers all have real, instant self-registration
+          (src/app/[locale]/register) — this section links straight to it. It's deliberately
+          separate from the "apply to join" card below, which is a reviewed lead-capture form
+          for clinics/hospitals that would rather talk to someone first than self-serve. */}
+      <section className="rounded-lg border border-neutral-200 bg-white p-6">
+        <h2 className="text-lg font-bold text-neutral-900">{dict.home.joinTitle}</h2>
+        <p className="mt-2 max-w-2xl text-sm text-neutral-600">{dict.home.joinBody}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href={`/${params.locale}/register?role=DOCTOR`}
+            className="rounded-md bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            {dict.home.joinAsDoctor}
+          </Link>
+          <Link
+            href={`/${params.locale}/register?role=CLINIC`}
+            className="rounded-md border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          >
+            {dict.home.joinAsClinic}
+          </Link>
+          <Link
+            href={`/${params.locale}/register?role=CLINIC&type=HOSPITAL`}
+            className="rounded-md border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          >
+            {dict.home.joinAsHospital}
+          </Link>
+          <Link
+            href={`/${params.locale}/register?role=SUPPLIER`}
+            className="rounded-md border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          >
+            {dict.home.joinAsSupplier}
+          </Link>
+        </div>
+      </section>
+
       {/* The button leads to an application form, not a sign-up: no account is created and
           nothing is granted until a human reviews it. That distinction is the reason a
           public form can exist here at all — see src/lib/services/partner-applications.ts. */}
