@@ -89,6 +89,48 @@ enforcement, and tenant isolation. Full suite: 139/139 passing.
 
 ---
 
+## Round 4C Addendum — Admin Operations Center (closes Risk #5 below)
+
+Built the cross-tenant support tooling this report flagged in section 16 (risk 5) as
+entirely missing: an audit log viewer, cross-tenant appointment search, and cross-tenant
+user lookup, all scoped to `SUPER_ADMIN` only. The user picked all three offered scope
+items rather than a subset.
+
+All three live under `/api/v1/admin/*`, which — per the existing, already-verified
+convention in `src/lib/tenant.ts` — run with no ambient tenant context at all, and the
+tenant-scoping middleware treats "no context" as an intentional bypass rather than a leak.
+Two new permissions were added to close the RBAC gate: `appointment:read_all` and
+`user:read_all`, both `SUPER_ADMIN`-only (added only to the `Permission` type, not to any
+role's array, since `SUPER_ADMIN: '*'` already bypasses the list).
+
+**Audit log viewer** (`/admin/audit-logs`) reads `AuditLog` for the first time anywhere in
+the codebase — `recordAudit()` remains the only write path, this adds a read path only —
+with `entityType`/`action` filter dropdowns and cursor pagination.
+
+**Cross-tenant appointment search** and **cross-tenant user search**
+(`/admin/appointments`, `/admin/users`) both follow the `PUBLIC_DOCTOR_SELECT` precedent
+from Phase 9/10 (explicit `select` allowlist, never `include`) precisely because that
+precedent exists as a direct lesson from a real prior leak (`calendarFeedToken`).
+`ADMIN_APPOINTMENT_SELECT` excludes `notes`/`cancelReason`; `ADMIN_USER_SELECT` excludes
+`passwordHash`/`twoFactorSecret`/`twoFactorBackupCodes`. Both search functions return `[]`
+for any query under 2 characters — no accidental full-table dump on an empty search box —
+and accept either a UUID (exact id lookup) or a free-text name/email substring.
+
+**Verified live, not just built:** a Playwright suite (`stage19-admin-ops.mjs`) confirmed
+nav-link presence, real page content, working search, RBAC denial (401/403) for both
+`TENANT_ADMIN` and `PATIENT` on all three new APIs, page-level redirect for `TENANT_ADMIN`
+hitting `/admin/users` directly by URL, and — going past HTML-rendering checks — direct
+JSON-response-shape assertions confirming `passwordHash`/`twoFactorSecret`/
+`twoFactorBackupCodes` and `notes`/`cancelReason` are structurally absent from the raw API
+responses, not merely unrendered. 23/23 checks passed on the first run. 11 new integration
+tests (`tests/integration/admin-ops.test.ts`) use two independent tenant worlds to prove
+genuine cross-tenant reach (not an accident of shared test fixtures), plus cursor-pagination
+correctness and soft-deleted-user exclusion. Regression: `stage13-admin-portal.mjs` (24/24)
+and `stage12-a11y-mobile-rtl.mjs` (41/41) both clean after adding the three new pages. Full
+suite: 150/150 vitest tests passing.
+
+---
+
 ## 1. Executive Summary
 
 The platform is **production-ready for the scope it claims**, with one hard, previously-known
@@ -422,7 +464,8 @@ it up anywhere (no service, no route, no UI, no seed data).
 | Performance audit | **PASS** | Section 8 |
 | Accessibility audit | **PASS** | Section 9 |
 | 3-viewer real-time queue test | **PASS** (Round 4A) | Round 4A Addendum above — all three viewers now converge live (12s poll) with zero manual reloads, verified via a real 3-tab Playwright test |
-| Final regression | **PASS** | Section 14; 130/130 vitest tests, all Playwright stage scripts green after test-script fixes |
+| Admin cross-tenant operations tooling | **PASS** (Round 4C) | Round 4C Addendum above — audit log viewer, cross-tenant appointment search, cross-tenant user search, all `SUPER_ADMIN`-only with explicit select allowlists; verified live (23/23) + 11 new integration tests + regression (24/24, 41/41) |
+| Final regression | **PASS** | Section 14; 150/150 vitest tests, all Playwright stage scripts green after test-script fixes |
 
 **Zero items remain marked "NOT TESTED."** The two PARTIAL items (payment, subscription) are
 PARTIAL because the code is real and tested but a real-world gateway/scheduler integration
@@ -465,11 +508,16 @@ testing was skipped.
    degrading to absent. Verified live (15/15: submission, RBAC, moderation, exact rating
    recompute, decide-once enforcement, public badge) plus 9 new integration tests.
 
-5. **Admin has no cross-tenant Users/Payments/Appointments/Audit-Log viewer pages.**
-   Consistent with the row-level tenant model (this data lives at the tenant level, viewed by
-   `TENANT_ADMIN`), but if platform operations ever need a cross-tenant support view (e.g.
-   "find this patient's appointment across all tenants" for a support ticket), that page does
-   not exist today and audit logs are written but never surfaced in any UI.
+5. ~~Admin has no cross-tenant Users/Payments/Appointments/Audit-Log viewer pages~~ —
+   **closed in Round 4C** for users, appointments, and audit logs. `SUPER_ADMIN` now has
+   `/admin/audit-logs`, `/admin/appointments`, and `/admin/users` — a support operator can
+   look up a patient's appointment or account across every tenant, or read the audit trail,
+   without a raw DB query. Both search services use an explicit `select` allowlist (never
+   `include`), excluding clinical notes/cancel reasons and credential fields respectively.
+   Verified live (23/23) plus 11 new integration tests proving genuine cross-tenant reach
+   across two independent tenant worlds. Residual, accepted gap: **cross-tenant Payments**
+   was not in this round's scope (the user selected audit log, appointment search, and user
+   search only) — a payments/refunds cross-tenant view does not exist today.
 
 6. **Test-data hygiene in the shared QA database**: three rounds of repeated script runs have
    left duplicate `QA clinic Org`/`QA Solo Practice`/`QA hospital Org` tenants (mostly
@@ -507,6 +555,8 @@ testing was skipped.
       above) if/when the business needs automatic renewal rather than manual re-subscription
 - [x] Short-poll refresh on the queue/appointment boards — done in Round 4A (section 16,
       risk 3); consider a WebSocket/SSE upgrade only if sub-second latency becomes a real need
+- [x] Admin cross-tenant audit log / appointment search / user search — done in Round 4C
+      (section 16, risk 5); cross-tenant Payments view remains out of scope by user choice
 - [ ] `NEXT_PUBLIC_SITE_URL` must be set at **build** time in the real deployment pipeline
       (`apphosting.yaml`) or canonicals/robots.txt will point at localhost — confirmed this is
       already documented and wired correctly in this repo, just flagging as a deploy-time
