@@ -52,6 +52,43 @@ over this fix.
 
 ---
 
+## Round 4B Addendum — Reviews & Ratings (closes Risk #4 below)
+
+Wired up the `Review` model this report flagged in section 16 (risk 4) as schema-only with
+zero application code. Two product decisions were made explicitly before building: (1)
+**moderation is by the tenant admin** (the clinic itself), consistent with how they already
+manage doctors/staff/services, not a neutral SUPER_ADMIN queue; (2) **only the aggregate
+rating is ever public** (stars + review count) — no review comment text is shown outside the
+clinic's own moderation view.
+
+**Patient side:** a patient may review their own appointment once it is `COMPLETED`, exactly
+once (`createReview`, `src/lib/services/reviews.ts`) — the schema's unique constraint on
+`appointmentId` is the backstop, the service checks ownership/status/duplication first for a
+clean error instead of a raw constraint violation. Starts `PENDING`. The patient dashboard
+shows a "leave a review" button on completed, unreviewed appointments only.
+
+**Tenant side:** `TENANT_ADMIN` moderates at `/tenant/reviews` (new `review:moderate`
+permission) — approve or reject, and a review can only be decided once. Approving
+recomputes `Doctor.ratingAverage`/`ratingCount` from every currently-`APPROVED` review for
+that doctor, inside the same transaction as the status write; a `PENDING` review never moves
+the number, a `REJECTED` one never counts.
+
+**Public side:** a new `RatingBadge` component renders nothing when `ratingCount` is 0 (the
+same "never fabricate data" rule already governing the SEO json-ld's `aggregateRating`), and
+now makes the doctor profile's and search results' existing `ratingAverage`/`ratingCount`
+fields — selected from the DB and sorted on since Phase 5, but never actually rendered
+anywhere — visible for the first time.
+
+**Verified live, not just built:** a Playwright walkthrough submitted a real review as a
+patient, confirmed RBAC denial for both doctor and patient attempting to moderate, approved
+it as the tenant admin, and confirmed the exact expected rating recompute in Postgres plus a
+visible star badge on both the public profile and search results page — 15/15 checks. 9 new
+integration tests cover ownership, one-review-per-appointment, the
+PENDING-doesn't-count/APPROVED-recomputes/REJECTED-never-counts rules, decide-once
+enforcement, and tenant isolation. Full suite: 139/139 passing.
+
+---
+
 ## 1. Executive Summary
 
 The platform is **production-ready for the scope it claims**, with one hard, previously-known
@@ -381,6 +418,7 @@ it up anywhere (no service, no route, no UI, no seed data).
 | Subscription/commission QA | **PARTIAL** (subscription) / **PASS** (commission) | Section 13; commission split verified exact via DB query across 130 passing vitest tests |
 | Search/marketplace QA | **PASS** | Verified in `stage3`, doctor search, booking widget mount-fetch fix (Round 2), not regressed |
 | Public profiles | **PASS** | ISR doctor profiles, ratingCount-gated schema.org output verified not to fabricate data |
+| Reviews & ratings | **PASS** (Round 4B) | Round 4B Addendum below — patient submission, tenant moderation, exact rating recompute, decide-once enforcement, public badge all verified live (15/15) + 9 new integration tests |
 | Performance audit | **PASS** | Section 8 |
 | Accessibility audit | **PASS** | Section 9 |
 | 3-viewer real-time queue test | **PASS** (Round 4A) | Round 4A Addendum above — all three viewers now converge live (12s poll) with zero manual reloads, verified via a real 3-tab Playwright test |
@@ -416,12 +454,16 @@ testing was skipped.
    updates (e.g. a very high-volume front desk). Not needed today; the short-poll fix
    matches the scale and existing patterns of the rest of the app.
 
-4. **The `Review` model exists in the schema with zero application wiring** — no service, no
-   API route, no UI, no seed data. `aggregateRating`/`ratingCount` in the SEO JSON-LD output
-   correctly degrade to omitting the property (per `CLAUDE.md`'s documented rule), so this is
-   not a data-integrity risk, but "patient reviews" is not a feature that exists today despite
-   the schema suggesting it might. Worth flagging for product scoping, not a bug to fix
-   silently.
+4. ~~The `Review` model exists in the schema with zero application wiring~~ — **closed in
+   Round 4B.** A patient may now review their own COMPLETED appointment once
+   (`src/lib/services/reviews.ts`); a TENANT_ADMIN moderates it at `/tenant/reviews`
+   (new `review:moderate` permission); approving recomputes `Doctor.ratingAverage`/
+   `ratingCount` from every currently-APPROVED review, in the same transaction as the
+   status write. Per product decision, only the aggregate (stars + count) is ever public —
+   no review text — via a new `RatingBadge` component on the doctor profile and search
+   cards; the SEO json-ld's `aggregateRating` now has real data behind it instead of always
+   degrading to absent. Verified live (15/15: submission, RBAC, moderation, exact rating
+   recompute, decide-once enforcement, public badge) plus 9 new integration tests.
 
 5. **Admin has no cross-tenant Users/Payments/Appointments/Audit-Log viewer pages.**
    Consistent with the row-level tenant model (this data lives at the tenant level, viewed by
