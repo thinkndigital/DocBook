@@ -25,14 +25,24 @@
 # that data unreadable — `decryptField` will return its "unreadable" marker rather than
 # throwing, so the failure is survivable, but the content is gone. Back it up somewhere
 # separate from the database.
+#
+# The four blocks below (PAYMENT_PROVIDER, EMAIL/SMS/WHATSAPP_PROVIDER, STORAGE_PROVIDER)
+# stay on their safe no-credential defaults ("dev"/"local") in this file deliberately: this
+# repo holds no real PayTabs/SendGrid/Twilio/S3 account, so flipping any of them to their
+# real value here — without also provisioning the matching secret below — would make
+# env-check.ts refuse to boot the whole app over one unconfigured integration, which is
+# worse than the current graceful per-feature degradation. Each block documents the exact
+# secrets + value change needed; a deploy operator with real credentials flips one block at
+# a time, `firebase apphosting:secrets:set`-ing the new secret(s) first.
 # ---------------------------------------------------------------------------------------
 
 runConfig:
-  # Small, and scale-to-zero: this is not yet carrying production traffic. Raise
-  # minInstances to 1 before launch — a cold start on a booking page is a lost booking.
+  # minInstances: 1 — no cold start on a booking page. Raised from 0 once this stopped being
+  # a "not yet carrying production traffic" backend; revert to 0 only for a throwaway/staging
+  # deploy where the occasional cold start is an acceptable tradeoff for cost.
   cpu: 1
   memoryMiB: 512
-  minInstances: 0
+  minInstances: 1
   maxInstances: 2
   concurrency: 80
 
@@ -97,6 +107,25 @@ env:
 
   # Dev adapters log instead of delivering. Booking, queue, and records are unaffected;
   # notifications degrade rather than failing the action that triggered them.
+  #
+  # Real adapters exist and are tested (SendGridAdapter, TwilioAdapter — see
+  # src/lib/notifications/). To go live on EMAIL:
+  #   firebase apphosting:secrets:set SENDGRID_API_KEY --project studio-4511819966-bc14f
+  # then change this block's EMAIL_PROVIDER value to `sendgrid` and add:
+  #   - variable: SENDGRID_API_KEY
+  #     secret: SENDGRID_API_KEY
+  #     availability: [RUNTIME]
+  #   - variable: EMAIL_FROM_ADDRESS      # must be a SendGrid-verified sender
+  #     value: no-reply@<your-domain>
+  #     availability: [RUNTIME]
+  # SMS and WHATSAPP both go live the same way with `twilio` + one secrets pair
+  # (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) shared between them, plus their own
+  # TWILIO_SMS_FROM_NUMBER / TWILIO_WHATSAPP_FROM_NUMBER (E.164). See .env.example for the
+  # full variable list; env-check.ts refuses to boot if a *_PROVIDER is flipped without its
+  # matching secrets present, so there is no silent half-configured state.
+  # PUSH has no real adapter: device-token registration needs a mobile/web client nothing in
+  # this codebase implements yet (see src/lib/services/notifications.ts's `destinationFor`
+  # doc comment) — leave PUSH_PROVIDER on `dev` until that client-side piece exists.
   - variable: EMAIL_PROVIDER
     value: dev
     availability:
@@ -118,14 +147,51 @@ env:
   # payment collection will return an error until a real gateway is configured. Everything
   # else works. This is a startup *warning*, not a boot failure — a clinic should not lose
   # its appointment book over an unconfigured gateway.
+  #
+  # PayTabsAdapter is built, tested against a local mock replicating PayTabs' real contract,
+  # and ready — see its own doc comment in src/lib/payments/paytabs-adapter.ts for exactly
+  # what that has and hasn't verified. To go live:
+  #   firebase apphosting:secrets:set PAYTABS_PROFILE_ID --project studio-4511819966-bc14f
+  #   firebase apphosting:secrets:set PAYTABS_SERVER_KEY --project studio-4511819966-bc14f
+  # then change this block's value to `paytabs` and add:
+  #   - variable: PAYTABS_PROFILE_ID
+  #     secret: PAYTABS_PROFILE_ID
+  #     availability: [RUNTIME]
+  #   - variable: PAYTABS_SERVER_KEY
+  #     secret: PAYTABS_SERVER_KEY
+  #     availability: [RUNTIME]
+  # Run one live Playwright booking-and-pay flow against PayTabs' real sandbox immediately
+  # after flipping this, to catch any field-level drift from the documented contract before
+  # real cards touch it.
   - variable: PAYMENT_PROVIDER
     value: dev
     availability:
       - RUNTIME
 
   # Local disk on App Hosting is ephemeral: uploaded documents vanish on every rollout and
-  # are not shared between instances. Switch to STORAGE_PROVIDER=s3 (or a GCS adapter)
-  # before any real patient document is uploaded. See DEPLOYMENT.md.
+  # are not shared between instances.
+  #
+  # S3StorageAdapter is built and tested (AWS Signature Version 4, verified against an
+  # independent from-scratch re-derivation of the signature in tests/integration/
+  # s3-adapter.test.ts, not just "a request was sent") — see src/lib/storage/s3-adapter.ts.
+  # To go live:
+  #   firebase apphosting:secrets:set S3_ACCESS_KEY_ID     --project studio-4511819966-bc14f
+  #   firebase apphosting:secrets:set S3_SECRET_ACCESS_KEY --project studio-4511819966-bc14f
+  # then change this block's STORAGE_PROVIDER value to `s3` and add:
+  #   - variable: S3_BUCKET
+  #     value: <your-bucket-name>
+  #     availability: [RUNTIME]
+  #   - variable: S3_REGION
+  #     value: <your-bucket-region>          # e.g. eu-west-1
+  #     availability: [RUNTIME]
+  #   - variable: S3_ACCESS_KEY_ID
+  #     secret: S3_ACCESS_KEY_ID
+  #     availability: [RUNTIME]
+  #   - variable: S3_SECRET_ACCESS_KEY
+  #     secret: S3_SECRET_ACCESS_KEY
+  #     availability: [RUNTIME]
+  # S3_ENDPOINT is optional, only for an S3-compatible provider other than AWS itself
+  # (R2, Spaces, MinIO) — leave it unset for real AWS S3.
   - variable: STORAGE_PROVIDER
     value: local
     availability:

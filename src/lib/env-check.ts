@@ -63,6 +63,59 @@ export function checkRequiredEnv(): void {
     if (!process.env.PAYTABS_SERVER_KEY) problems.push('  - PAYTABS_SERVER_KEY is missing or empty. From the PayTabs dashboard: Developers > Key management.');
   }
 
+  // Same granularity as payments: a channel stuck on "dev" degrades that one channel
+  // (getNotificationProvider() logs and returns null), it does not take booking down, so
+  // this stays a warning here too rather than a boot failure.
+  const DEV_NOTIFICATION_CHANNELS: Array<[string, string]> = [
+    ['EMAIL_PROVIDER', 'EMAIL'],
+    ['SMS_PROVIDER', 'SMS'],
+    ['WHATSAPP_PROVIDER', 'WHATSAPP'],
+    ['PUSH_PROVIDER', 'PUSH'],
+  ];
+  for (const [envVar, channel] of DEV_NOTIFICATION_CHANNELS) {
+    if (!process.env[envVar] || process.env[envVar] === 'dev') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[config] ${envVar} is "dev" — ${channel} notifications will be logged, not delivered, ` +
+          'until a real provider is configured. All other features are unaffected.'
+      );
+    }
+  }
+
+  if (process.env.EMAIL_PROVIDER === 'sendgrid') {
+    if (!process.env.SENDGRID_API_KEY) problems.push('  - SENDGRID_API_KEY is missing or empty. From the SendGrid dashboard: Settings > API Keys.');
+    if (!process.env.EMAIL_FROM_ADDRESS) problems.push('  - EMAIL_FROM_ADDRESS is missing or empty. Must be a verified sender in SendGrid.');
+  }
+
+  if (process.env.SMS_PROVIDER === 'twilio' || process.env.WHATSAPP_PROVIDER === 'twilio') {
+    if (!process.env.TWILIO_ACCOUNT_SID) problems.push('  - TWILIO_ACCOUNT_SID is missing or empty. From the Twilio Console dashboard.');
+    if (!process.env.TWILIO_AUTH_TOKEN) problems.push('  - TWILIO_AUTH_TOKEN is missing or empty. From the Twilio Console dashboard.');
+    if (process.env.SMS_PROVIDER === 'twilio' && !process.env.TWILIO_SMS_FROM_NUMBER) {
+      problems.push('  - TWILIO_SMS_FROM_NUMBER is missing or empty (E.164, a Twilio SMS-capable number).');
+    }
+    if (process.env.WHATSAPP_PROVIDER === 'twilio' && !process.env.TWILIO_WHATSAPP_FROM_NUMBER) {
+      problems.push('  - TWILIO_WHATSAPP_FROM_NUMBER is missing or empty (E.164, a Twilio WhatsApp-enabled sender).');
+    }
+  }
+
+  // Local disk on most container platforms (including App Hosting) is ephemeral and not
+  // shared between instances — a warning, not a failure, because documents/attachments are
+  // one feature among many and the platform is still useful without them surviving a rollout.
+  if (process.env.STORAGE_PROVIDER === 'local' || !process.env.STORAGE_PROVIDER) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[config] STORAGE_PROVIDER is "local" — uploaded documents will NOT survive a rollout ' +
+        'or be shared across instances until STORAGE_PROVIDER=s3 is configured. All other features are unaffected.'
+    );
+  }
+
+  if (process.env.STORAGE_PROVIDER === 's3') {
+    if (!process.env.S3_BUCKET) problems.push('  - S3_BUCKET is missing or empty.');
+    if (!process.env.S3_REGION) problems.push('  - S3_REGION is missing or empty.');
+    if (!process.env.S3_ACCESS_KEY_ID) problems.push('  - S3_ACCESS_KEY_ID is missing or empty.');
+    if (!process.env.S3_SECRET_ACCESS_KEY) problems.push('  - S3_SECRET_ACCESS_KEY is missing or empty.');
+  }
+
   // Also a warning, not a failure, for the same reason: no external scheduler is set up yet
   // is a missing *cron job*, not a missing secret the app itself needs to boot — booking,
   // queue and records are entirely unaffected by subscriptions never expiring on schedule.

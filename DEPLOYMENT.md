@@ -68,6 +68,60 @@ sandbox, since no account exists for this project. Before taking real payments, 
 `PAYTABS_BASE_URL` at a real PayTabs sandbox profile and run one real card transaction
 end-to-end to catch any field-level drift between the documented contract and the live one.
 
+### Configuring real notifications (SendGrid + Twilio)
+
+Same `dev`-adapter-by-default shape as payments: `EMAIL_PROVIDER`/`SMS_PROVIDER`/
+`WHATSAPP_PROVIDER` all default to `dev` (logs instead of delivering), and flipping any one
+of them to its real value with a required secret missing makes `checkRequiredEnv()` refuse
+to boot — same fail-loud contract as `PAYMENT_PROVIDER=paytabs` above.
+
+- **`EMAIL_PROVIDER=sendgrid`** (`src/lib/notifications/sendgrid-adapter.ts`) targets
+  SendGrid's real v3 Mail Send API (`POST /v3/mail/send`, Bearer auth). Requires
+  `SENDGRID_API_KEY` and `EMAIL_FROM_ADDRESS` (must be a verified sender in that SendGrid
+  account, or every send is rejected regardless of the key being valid).
+- **`SMS_PROVIDER=twilio`** / **`WHATSAPP_PROVIDER=twilio`** (`src/lib/notifications/
+  twilio-adapter.ts`) target Twilio's real Programmable Messaging API (`POST /2010-04-01/
+  Accounts/{Sid}/Messages.json`, HTTP Basic auth) — one adapter class serves both channels,
+  selected by which sender number it's constructed with. Both need `TWILIO_ACCOUNT_SID` and
+  `TWILIO_AUTH_TOKEN`; SMS additionally needs `TWILIO_SMS_FROM_NUMBER` (any Twilio
+  SMS-capable number) and WhatsApp needs `TWILIO_WHATSAPP_FROM_NUMBER` (must be a
+  WhatsApp-enabled sender — Twilio's sandbox number while testing, an approved sender for
+  production traffic).
+- **`PUSH_PROVIDER`** has no real adapter and none is planned in this pass: push delivery
+  needs a device token, and nothing in this codebase registers one — that requires a
+  mobile app or a web-push service-worker subscription flow, both genuinely new client-side
+  surface, not a configuration change. Leave it on `dev` until that client exists.
+
+**Verification status**: both adapters are built against each provider's documented REST
+contract and verified against local mock servers replicating it —
+`tests/integration/sendgrid-adapter.test.ts`, `tests/integration/twilio-adapter.test.ts` —
+not against real SendGrid/Twilio accounts, since neither exists for this project. Same
+"send one real message through the real account before relying on it operationally"
+caveat as PayTabs above.
+
+### Configuring durable storage (S3)
+
+`STORAGE_PROVIDER=s3` (`src/lib/storage/s3-adapter.ts`) targets real AWS S3 (or any
+S3-compatible store — Cloudflare R2, DigitalOcean Spaces, self-hosted MinIO, via
+`S3_ENDPOINT`), signed with AWS Signature Version 4 computed from `node:crypto` directly —
+no AWS SDK dependency, matching the fetch-only style of the payment and notification
+adapters above. Requires `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`,
+`S3_SECRET_ACCESS_KEY`; `checkRequiredEnv()` refuses to boot in production if any is
+missing once `s3` is selected.
+
+`getSignedUrl()`/`verifySignedUrl()` deliberately do **not** hand out a raw S3 presigned
+URL — they reuse the exact same HMAC scheme `LocalStorageAdapter` already used
+(`src/lib/storage/url-signing.ts`), so a download link from either backend always resolves
+through `/api/v1/files/download`, which re-checks session and per-patient clinical
+permission on every request. A raw S3 presigned URL handed to the browser would bypass that
+check entirely for anyone holding the URL — see that route's own doc comment.
+
+**Verification status**: the SigV4 signing is verified against an independent
+from-scratch re-derivation of the same algorithm written separately in the test file
+(`tests/integration/s3-adapter.test.ts`) — not a copy of the adapter's own signing code,
+so the test can actually catch a signing bug rather than only prove the adapter agrees with
+itself — run against a local mock S3-compatible server, not a real AWS account.
+
 ### Recurring subscription billing needs an external scheduler
 
 Set `CRON_SECRET` (`openssl rand -base64 32`) — without it `POST
@@ -361,8 +415,9 @@ These do not stop a rollout going green, which is exactly why they are worth sta
    Error" class documented above. `.github/workflows/migrate.yml` fills the gap — see
    "Applying migrations without a local machine" below.
 3. **Durable file storage.** `STORAGE_PROVIDER=local` writes to container-local disk, which
-   is wiped on every rollout and not shared between instances. Move to an S3-compatible or
-   GCS adapter before any real patient document is uploaded.
+   is wiped on every rollout and not shared between instances. An S3-compatible adapter now
+   exists (`STORAGE_PROVIDER=s3` — see "Configuring durable storage" above); switch to it
+   before any real patient document is uploaded.
 
 ## Target cloud platform — open decision
 
@@ -464,10 +519,12 @@ production.
 A backup you have never restored is a hypothesis. The drill exists to test the key and the
 migration history together, not the storage.
 
-**What is *not* covered:** uploaded documents. `STORAGE_PROVIDER=local` writes to
-container-local disk, which is wiped on every rollout and shared with nothing. Until an S3
-or GCS adapter is configured there is no file backup because there is no durable file
-storage — see the three-things list above.
+**What is *not* covered while `STORAGE_PROVIDER=local`:** uploaded documents.
+Container-local disk is wiped on every rollout and shared with nothing, so there is no file
+backup because there is no durable file storage. An S3 adapter exists
+(`STORAGE_PROVIDER=s3` — see "Configuring durable storage" above); once switched, backup
+coverage becomes whatever retention/versioning policy is set on the S3 bucket itself, which
+is a separate setting to configure from the database backup story above.
 
 **Recovery objectives, stated rather than implied:** with Neon history retention at 24
 hours, RPO is effectively seconds (point-in-time within the window) and RTO is minutes
