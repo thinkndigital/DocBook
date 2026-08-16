@@ -31,11 +31,35 @@ export function PaymentButton({ appointmentId, paymentStatus, paymentId, canRefu
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ method }),
     });
-    setSubmitting(false);
-    setOpen(false);
     if (!res.ok) {
+      setSubmitting(false);
+      setOpen(false);
       const body = await res.json().catch(() => null);
       setError(body?.error?.message ?? 'تعذر تحصيل الدفعة.');
+      return;
+    }
+    const body = await res.json();
+    // A redirect-based gateway (e.g. PayTabs card payment) never confirms synchronously —
+    // navigate the browser to the hosted page instead of refreshing. Nothing to reset here:
+    // this tab is about to leave.
+    if (body?.data?.redirectUrl) {
+      window.location.href = body.data.redirectUrl;
+      return;
+    }
+    setSubmitting(false);
+    setOpen(false);
+    router.refresh();
+  }
+
+  async function cancelAwaiting() {
+    if (!paymentId) return;
+    setSubmitting(true);
+    setError(null);
+    const res = await fetch(`/api/v1/tenant/payments/${paymentId}/cancel-redirect`, { method: 'POST' });
+    setSubmitting(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setError(body?.error?.message ?? 'تعذر إلغاء الدفعة المعلّقة.');
       return;
     }
     router.refresh();
@@ -57,6 +81,23 @@ export function PaymentButton({ appointmentId, paymentStatus, paymentId, canRefu
       return;
     }
     router.refresh();
+  }
+
+  if (paymentStatus === 'AWAITING_REDIRECT') {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-xs font-medium text-amber-700">بانتظار الدفع</span>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={cancelAwaiting}
+          className="text-xs text-red-700 underline hover:no-underline disabled:opacity-50"
+        >
+          {submitting ? '...' : 'إلغاء والمحاولة مجدداً'}
+        </button>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
+    );
   }
 
   if (paymentStatus === 'PAID') {

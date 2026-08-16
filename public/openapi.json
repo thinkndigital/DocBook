@@ -5723,7 +5723,7 @@
         ]
       },
       "post": {
-        "summary": "Collect payment. The commission split is validated before the gateway is called.",
+        "summary": "Collect payment. The commission split is validated before the gateway is called. For a redirect-based gateway (e.g. PayTabs card payment), the response includes redirectUrl and the payment is left AWAITING_REDIRECT rather than PAID.",
         "description": "Requires the `payment:collect` permission.",
         "tags": [
           "Payments"
@@ -10858,6 +10858,37 @@
         ]
       }
     },
+    "/api/v1/payments/paytabs/callback": {
+      "post": {
+        "summary": "PayTabs server-to-server IPN. Requires a valid HMAC-SHA256 'signature' header over the raw body. Re-queries PayTabs for the authoritative status rather than trusting the payload.",
+        "description": "Public — no authentication.",
+        "tags": [
+          "Webhooks"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/ai/triage": {
       "post": {
         "summary": "Symptom triage. Rate limited per hashed IP. Urgent results suppress booking suggestions.",
@@ -11027,6 +11058,82 @@
         }
       }
     },
+    "/api/v1/tenant/payments/confirm-redirect": {
+      "post": {
+        "summary": "Confirm a redirect-based payment's outcome after the payer returns from the gateway's hosted page. Takes our own paymentId (not the gateway's transaction reference) and re-queries the gateway directly using the stored providerRef, never trusting the return URL's query string for the outcome itself.",
+        "description": "Requires the `payment:collect` permission.",
+        "tags": [
+          "Payments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paymentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "paymentId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied. An audit row is written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
     "/api/v1/tenant/payments/refund": {
       "post": {
         "summary": "Refund a payment.",
@@ -11091,6 +11198,82 @@
           },
           "403": {
             "description": "Permission denied. An audit row is written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tenant/payments/{id}/cancel-redirect": {
+      "post": {
+        "summary": "Cancel a payment stuck in AWAITING_REDIRECT so the front desk can retry collection.",
+        "description": "Requires the `payment:collect` permission.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied. An audit row is written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or not visible to the caller.",
             "content": {
               "application/json": {
                 "schema": {

@@ -406,9 +406,22 @@ export const ROUTES: Record<string, RouteMeta> = {
     tag: 'Tenant',
   },
   'POST /api/v1/tenant/appointments/{id}/payment': {
-    summary: 'Collect payment. The commission split is validated before the gateway is called.',
+    summary:
+      'Collect payment. The commission split is validated before the gateway is called. For a redirect-based gateway (e.g. PayTabs card payment), the response includes redirectUrl and the payment is left AWAITING_REDIRECT rather than PAID.',
     auth: 'payment:collect',
     body: billing.collectPaymentSchema,
+    tag: 'Payments',
+  },
+  'POST /api/v1/tenant/payments/confirm-redirect': {
+    summary:
+      "Confirm a redirect-based payment's outcome after the payer returns from the gateway's hosted page. Takes our own paymentId (not the gateway's transaction reference) and re-queries the gateway directly using the stored providerRef, never trusting the return URL's query string for the outcome itself.",
+    auth: 'payment:collect',
+    body: billing.confirmRedirectPaymentSchema,
+    tag: 'Payments',
+  },
+  'POST /api/v1/tenant/payments/{id}/cancel-redirect': {
+    summary: 'Cancel a payment stuck in AWAITING_REDIRECT so the front desk can retry collection.',
+    auth: 'payment:collect',
     tag: 'Payments',
   },
   'POST /api/v1/tenant/payments/refund': { summary: 'Refund a payment.', auth: 'billing:manage_tenant', body: billing.refundPaymentSchema, tag: 'Payments' },
@@ -540,6 +553,12 @@ export const ROUTES: Record<string, RouteMeta> = {
   },
   'GET /api/v1/webhooks/whatsapp': { summary: 'Meta webhook verification handshake (hub.challenge).', auth: 'public', tag: 'Webhooks' },
   'POST /api/v1/webhooks/whatsapp': { summary: 'Inbound WhatsApp messages. Requires a valid x-hub-signature-256.', auth: 'public', tag: 'Webhooks' },
+  'POST /api/v1/payments/paytabs/callback': {
+    summary:
+      "PayTabs server-to-server IPN. Requires a valid HMAC-SHA256 'signature' header over the raw body. Re-queries PayTabs for the authoritative status rather than trusting the payload.",
+    auth: 'public',
+    tag: 'Webhooks',
+  },
 
 
   // Present on disk, added after the generator caught them missing.

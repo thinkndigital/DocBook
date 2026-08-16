@@ -131,7 +131,7 @@ export class CommissionOverAllocationError extends Error {}
  * persistence so the caller can validate the configuration *before* taking any money —
  * see collectAppointmentPayment. Idempotent per appointment.
  */
-export async function persistCommissions(appointmentId: string, split: CommissionSplit, actor: SessionUser) {
+export async function persistCommissions(appointmentId: string, split: CommissionSplit, actor: SessionUser | null) {
   const existing = await db.commission.count({ where: { appointmentId, status: { not: 'CANCELLED' } } });
   if (existing > 0) return [];
 
@@ -156,7 +156,7 @@ export async function persistCommissions(appointmentId: string, split: Commissio
   );
 
   await recordAudit({
-    actorUserId: actor.id,
+    actorUserId: actor?.id ?? null,
     tenantId: appointment.tenantId,
     action: 'COMMISSIONS_GENERATED',
     entityType: 'Appointment',
@@ -171,7 +171,7 @@ export async function persistCommissions(appointmentId: string, split: Commissio
 }
 
 /** A refunded booking must not leave payable commissions behind. */
-export async function cancelCommissionsForAppointment(appointmentId: string, actor: SessionUser) {
+export async function cancelCommissionsForAppointment(appointmentId: string, actor: SessionUser | null) {
   const { count } = await db.commission.updateMany({
     where: { appointmentId, status: 'PENDING' },
     data: { status: 'CANCELLED' },
@@ -180,7 +180,7 @@ export async function cancelCommissionsForAppointment(appointmentId: string, act
   if (count > 0) {
     const appointment = await db.appointment.findUnique({ where: { id: appointmentId } });
     await recordAudit({
-      actorUserId: actor.id,
+      actorUserId: actor?.id ?? null,
       tenantId: appointment?.tenantId ?? null,
       action: 'COMMISSIONS_CANCELLED',
       entityType: 'Appointment',

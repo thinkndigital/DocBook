@@ -43,8 +43,9 @@ describe('payment state machine (dev adapter)', () => {
   it('authorizes and captures in one call, landing on PAID with a full transaction ledger', async () => {
     const appointment = await createAppointment(bookingInput(futureSlot(3, 9)), world.staffSession);
 
-    const payment = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
+    const { payment, redirectUrl } = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
 
+    expect(redirectUrl).toBeUndefined();
     expect(payment.status).toBe('PAID');
     expect(payment.providerRef?.startsWith('dev_')).toBe(true);
     expect(payment.transactions.map((t) => `${t.type}:${t.status}`)).toEqual(['AUTHORIZE:AUTHORIZED', 'CAPTURE:PAID']);
@@ -75,7 +76,7 @@ describe('payment state machine (dev adapter)', () => {
 
   it('full refund moves PAID -> REFUNDED and cancels the paid commissions', async () => {
     const appointment = await createAppointment(bookingInput(futureSlot(3, 12)), world.staffSession);
-    const payment = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
+    const { payment } = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
 
     const refunded = await refundPayment(payment.id, undefined, world.staffSession);
     expect(refunded.status).toBe('REFUNDED');
@@ -86,7 +87,7 @@ describe('payment state machine (dev adapter)', () => {
 
   it('partial refund moves PAID -> PARTIALLY_REFUNDED and rejects a second refund beyond the remainder', async () => {
     const appointment = await createAppointment(bookingInput(futureSlot(3, 13)), world.staffSession);
-    const payment = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
+    const { payment } = await collectAppointmentPayment(appointment.id, { method: 'CASH' }, world.staffSession);
     const half = Math.floor(payment.amountMinor / 2);
 
     const partial = await refundPayment(payment.id, half, world.staffSession);

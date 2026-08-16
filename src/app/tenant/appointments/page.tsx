@@ -59,7 +59,15 @@ export default async function AppointmentsPage({
     runInSessionTenant(() => listTenantPayments()),
   ]);
 
-  const paymentByAppointment = new Map(payments.filter((p) => p.appointmentId).map((p) => [p.appointmentId!, p]));
+  // listTenantPayments() orders newest-first, and an appointment can carry more than one
+  // payment row over time (e.g. a cancelled/failed attempt followed by a successful one) —
+  // building the Map from [appointmentId, payment] pairs in that order would let a later
+  // (older) entry silently overwrite the newest one, since Map construction keeps the last
+  // write per key. Keep only the first (newest) payment seen per appointment.
+  const paymentByAppointment = new Map<string, (typeof payments)[number]>();
+  for (const p of payments) {
+    if (p.appointmentId && !paymentByAppointment.has(p.appointmentId)) paymentByAppointment.set(p.appointmentId, p);
+  }
 
   return (
     <div>

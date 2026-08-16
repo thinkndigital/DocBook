@@ -26,8 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return withTenantAuthorizationAny(session, ['payment:collect', 'billing:manage_tenant'], async (user) => {
     try {
       const body = await parseBody(req, collectPaymentSchema);
-      const payment = await collectAppointmentPayment(params.id, body, user);
-      return okResponse(payment, 201);
+      const { payment, redirectUrl } = await collectAppointmentPayment(params.id, body, user);
+      return okResponse({ payment, redirectUrl }, 201);
     } catch (err) {
       if (err instanceof ValidationError) return validationErrorResponse(err);
       if (err instanceof PaymentNotFoundError) return errorResponse('APPOINTMENT_NOT_FOUND', err.message, 404);

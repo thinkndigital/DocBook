@@ -10,6 +10,10 @@ export const refundPaymentSchema = z.object({
   amountMinor: z.number().int().min(1).optional(),
 });
 
+export const confirmRedirectPaymentSchema = z.object({
+  paymentId: z.string().uuid(),
+});
+
 export const subscribeSchema = z.object({
   planId: z.string().uuid(),
 });

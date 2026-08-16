@@ -45,4 +45,7 @@ export class DevPaymentAdapter implements PaymentProvider {
   async void(providerRef: string): Promise<PaymentProviderResult> {
     return { providerRef, success: true };
   }
+
+  // Never goes `pending`, so queryStatus is intentionally not implemented — see the
+  // PaymentProvider interface doc for which adapters need it.
 }

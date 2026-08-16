@@ -95,6 +95,11 @@ enum ScheduleExceptionType {
 enum PaymentStatus {
   PENDING
   AUTHORIZED
+  /// A redirect-based gateway (e.g. a hosted payment page) accepted the request and is
+  /// waiting for the payer to complete it out-of-band. Distinct from PENDING so the
+  /// duplicate-payment guard blocks a second collection attempt while one is in flight,
+  /// and so the UI can render a "resume or cancel" state instead of a generic pending spinner.
+  AWAITING_REDIRECT
   PAID
   FAILED
   REFUNDED
@@ -807,7 +812,7 @@ model Payment {
   amountMinor    Int
   currency       String        @default("JOD")
   method         PaymentMethod
-  provider       String // "dev" | future gateway identifiers
+  provider       String // "dev" | "paytabs" | future gateway identifiers
   providerRef    String?
   status         PaymentStatus @default(PENDING)
   createdAt      DateTime      @default(now())

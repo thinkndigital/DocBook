@@ -58,6 +58,11 @@ export function checkRequiredEnv(): void {
     );
   }
 
+  if (process.env.PAYMENT_PROVIDER === 'paytabs') {
+    if (!process.env.PAYTABS_PROFILE_ID) problems.push('  - PAYTABS_PROFILE_ID is missing or empty. From the PayTabs dashboard: Developers > Key management.');
+    if (!process.env.PAYTABS_SERVER_KEY) problems.push('  - PAYTABS_SERVER_KEY is missing or empty. From the PayTabs dashboard: Developers > Key management.');
+  }
+
   if (problems.length > 0) {
     throw new Error(
       `DocBook cannot start: ${problems.length} configuration problem(s).\n\n${problems.join('\n')}\n\n` +
