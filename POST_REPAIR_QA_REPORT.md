@@ -9,12 +9,16 @@ verified separately, outside this local pass.
 
 **Status: Round 1 in progress, not complete.** This round covers authentication, registration,
 role redirects, tenant/staff/representative provisioning, the patient booking → reschedule →
-cancel flow, the double-booking race guarantee, and a first batch of cross-role RBAC checks —
-all against real data, all re-tested after fixes. It does **not** yet cover: the doctor
-consultation flow (check-in → notes → prescription), the receptionist queue board, the supplier
-flow, representative booking-for-patient, the full admin walkthrough, Arabic/English RTL/LTR
-detail QA, mobile viewport QA, the landing page, a full database integrity pass, and a formal
-regression re-run of every role after all fixes land. Those continue in Round 2. Treat the
+cancel flow, the double-booking race guarantee, a batch of cross-role RBAC checks, the full
+appointment lifecycle (check-in → queue → called → consultation → completed, verified synced
+between the tenant and doctor views), doctor clinical notes, patient record visibility, and the
+representative medical-record restriction — all against real data, all re-tested after fixes.
+It does **not** yet cover: the supplier flow (products/orders/inventory), a full representative
+booking-for-patient walkthrough (only that the page loads was checked), prescription PDF
+generation, notifications, real-time queue sync across three simultaneous viewers, the rest of
+the admin portal, Arabic/English RTL/LTR detail QA, mobile viewport QA, the landing page, a full
+database integrity pass, the rest of the API audit (pagination/filtering/rate limiting), and a
+formal regression re-run of every role after all fixes land. Those continue in Round 2. Treat the
 "Final Acceptance Criteria" checkboxes at the bottom as the honest current state, not a claim of
 done.
 
@@ -156,6 +160,22 @@ done.
   tenant billing API denied (404, correctly not found rather than leaking existence); tenant
   admin's own doctor list never includes another tenant's doctors; unauthenticated → any
   authenticated API denied (401).
+- **Full appointment lifecycle**: a real booked appointment walked through
+  `CONFIRMED → CHECKED_IN → IN_QUEUE → CALLED → IN_CONSULTATION → COMPLETED` by the tenant admin
+  via `/tenant/appointments`, then independently re-checked from the doctor's own
+  `/doctor/appointments` view — same final status, confirming the two views read from the same
+  source of truth rather than drifting. (Note: `/tenant/appointments` and `/doctor/appointments`
+  are both date-scoped daily boards by design, defaulting to today — a sensible front-desk UX,
+  not a bug; a test against a future-dated appointment needs `?date=YYYY-MM-DD`.)
+- **Doctor clinical workflow**: added a real clinical note (diagnosis + notes) from
+  `/doctor/patients/[id]`, confirmed it persists and renders back. Confirmed the patient can see
+  their own encrypted records page at `/[locale]/patient/records`.
+- **Representative medical-record restriction (explicitly flagged as critical in the audit
+  brief)**: verified from three angles — the representative portal has no medical-records nav
+  link at all; a direct API call to the patient-records endpoint with a real representative
+  session is denied with `403`; the representative's own booking page
+  (`/rep/book`) still loads and works, confirming the restriction is specific to clinical data,
+  not an over-broad lockout of the rep's actual job.
 
 ---
 
@@ -168,17 +188,19 @@ done.
 [x] Patient flow — search, book, view, reschedule, cancel (verified live)
 [x] Booking works, using real (non-hardcoded) availability
 [x] Double booking is prevented (verified with a real concurrent-request race)
-[x] Permissions/RBAC — first batch of cross-role denials verified live
+[x] Permissions/RBAC — batch of cross-role denials verified live
 [x] Tenant isolation — spot-checked (doctor list scoping); not yet a full data audit
-[ ] Doctor flow — check-in, consultation notes, prescription (not yet tested this round)
-[ ] Clinic/Hospital flow — queue management, check-in, complete (not yet tested this round)
+[x] Doctor flow — check-in through completion (via tenant board) + clinical notes verified;
+    prescription form exists but a real prescription was not submitted end-to-end this round
+[x] Clinic/Hospital flow — full appointment lifecycle walked through and synced with doctor view
 [ ] Supplier flow — products, orders, inventory (not yet tested this round)
-[ ] Representative flow — book for patient, commissions, and the "no medical record access"
-    boundary specifically (not yet tested this round)
+[x] Representative flow — the "no medical record access" boundary specifically (3-angle check);
+    booking-for-patient page loads with a real form, but a full booking was not submitted
 [ ] Admin flow — full walkthrough beyond tenant/doctor/rep management already covered
-[ ] Queue — real-time sync across patient/doctor/clinic views
+[ ] Queue — status transitions verified; real-time sync across 3 simultaneous viewers not tested
 [ ] Payments — dev adapter only in this environment; not exercised this round
-[ ] Medical records / prescriptions — not yet tested this round
+[x] Medical records — doctor writes a note, patient reads their own records page; prescriptions
+    not yet exercised end-to-end
 [ ] Notifications — not yet tested this round
 [ ] Arabic RTL detail QA (icons, calendars, tables, modals)
 [ ] English LTR detail QA
