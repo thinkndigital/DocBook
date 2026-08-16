@@ -198,6 +198,67 @@ clean.
 
 ---
 
+## Round 4E Addendum — Recurring Subscriptions (closes Risk #2 below)
+
+Built the expiry/reminder/cancellation state machine section 13 said was deliberately
+absent — `runSubscriptionBillingCycle` (`src/lib/services/subscriptions.ts`), triggered by
+`POST /api/v1/cron/subscriptions/tick`, which this deployment target needs an external
+scheduler (Cloud Scheduler, `cron-job.org`, a scheduled GitHub Action) to call daily, since
+App Hosting/Cloud Run has no built-in cron — see DEPLOYMENT.md.
+
+**Explicitly not auto-charge, per user decision between two offered scopes.** The user chose
+"expiry + manual renewal" over "true auto-charge via a stored/tokenized card": renewal is
+always the tenant admin re-subscribing through the existing payment flow (cash or PayTabs),
+never a silent background charge. Real recurring auto-charge would need PayTabs card
+tokenization/vaulting — a separate API surface from the one-time hosted-page flow Round 4D
+built, and one more thing that could only be verified against a mock, not a real saved-card
+flow. This keeps the scope to what's actually verifiable and matches
+`ROADMAP.md`'s original framing ("needs a scheduler **and** a real gateway's recurring-charge
+support") — this round supplies the scheduler half honestly, not a stubbed version of the
+gateway half.
+
+**State machine, three idempotent passes**: a reminder notification 3 days before
+`currentPeriodEnd` (guarded by a new `reminderSentAt` column so a daily tick doesn't resend
+it); `ACTIVE`/`TRIALING` → `PAST_DUE` at expiry; `PAST_DUE` → `CANCELLED` after a 7-day grace
+period. Re-subscribing at any point (including while `PAST_DUE`) supersedes whatever row
+exists and creates a fresh `ACTIVE` one — `subscribeTenantToPlan`'s "current subscription to
+supersede" lookup had to widen from ACTIVE/TRIALING to also include PAST_DUE, or a renewal
+during the grace period would leave the old row stranded, never resolving to CANCELLED.
+
+**Second explicit product decision, also by user choice: gating stays informational-only.**
+`PAST_DUE`/`CANCELLED` show a billing-status banner to `TENANT_ADMIN` (`/tenant/billing`) and
+drive notifications, but no feature is blocked — consistent with the platform's existing
+"payment gateway optional" posture, and deliberately avoiding locking a clinic out of active
+patient care over an unpaid invoice. This required a real decision in
+`computeCommissionSplit`, not just leaving it alone: should a `PAST_DUE` tenant's booking
+commission fall back to the harsher `PLATFORM` default rule (since it's no longer strictly
+`ACTIVE`) or keep its plan's rate through the grace period? Chosen: keep the plan's rate —
+falling back would be a form of gating the "informational only" decision explicitly rejected,
+just expressed through pricing instead of a feature flag. Only a fully `CANCELLED`
+subscription loses plan pricing.
+
+**A real, pre-existing UX bug found while wiring the billing page, fixed alongside it:**
+`PlanSwitcher`'s `currentPlanId` prop was set unconditionally from `subscription?.planId`,
+which — once a `CANCELLED`/`PAST_DUE` subscription could exist and still be the tenant's most
+recent row — rendered that lapsed plan as "current" with **no switch button**, silently
+blocking a tenant from renewing to the *same* plan they already had (only a different plan
+was clickable). Fixed to only treat `ACTIVE`/`TRIALING` as "current" for this purpose. Found
+by the live Playwright verification, not code review.
+
+**Verified live against a running production build**: `stage21-recurring-subscriptions.mjs`,
+17/17 — cron auth (missing/wrong/correct bearer token), the full
+ACTIVE→PAST_DUE→CANCELLED→(re-subscribe)→ACTIVE cycle driven by backdating a real
+subscription's `currentPeriodEnd` and calling the tick endpoint, the PAST_DUE banner plus
+"features still work" confirmed by successfully loading the appointments board while
+`PAST_DUE`, notification rows for each transition, idempotency (a repeat tick doesn't
+re-notify), and the old row correctly staying `CANCELLED` (not resurrected) after renewal.
+5 new integration tests cover the same state machine deterministically via backdated rows,
+including the commission-rate-during-grace-period decision above. Full suite: 172/172
+vitest passing. Regression: `stage13-admin-portal.mjs` (24/24), `stage12-a11y-mobile-rtl.mjs`
+(41/41), `stage15-subscriptions.mjs` (9/9) all clean.
+
+---
+
 ## 1. Executive Summary
 
 The platform is **production-ready for the scope it claims**, with one hard, previously-known
@@ -225,7 +286,9 @@ independently reproduced, not merely re-reading a checklist.
 No critical or high-severity issue remains unresolved. The one deliberately incomplete area —
 recurring subscription billing/proration — was never claimed as delivered; `ROADMAP.md` has
 documented it as out of scope since Phase 7, and this round confirms the code still matches
-that documentation.
+that documentation. **The expiry/reminder/cancellation half of this is now built — see the
+Round 4E Addendum above; only true stored-card auto-charge remains out of scope, by explicit
+user choice.**
 
 ---
 
@@ -444,6 +507,12 @@ is the regression harness that would catch a broken adapter before it reached pr
 
 ## 13. Subscription Readiness — **PARTIAL (documented scope, not a defect)**
 
+> **Round 4E update**: the renewal/expiry state machine and gating decisions described as
+> absent below now exist — see the Round 4E Addendum near the top of this document. This
+> section is left as originally written (Round 3) because the plan-switching mechanics it
+> describes are unchanged; what changed is everything under "Deliberately not implemented"
+> just below, which Round 4E built.
+
 **Verified genuinely working this round** (live end-to-end test against the running server,
 not just a code read):
 - Create: `POST /api/v1/tenant/subscription` with a real plan id succeeds (201), lands on
@@ -534,7 +603,7 @@ it up anywhere (no service, no route, no UI, no seed data).
 | Empty/loading/error states | **PASS** | Verified across admin/tenant/doctor/patient pages hit this round; explicit empty-state text everywhere checked |
 | Session/auth QA | **PASS** | Sliding JWT confirmed (Round 2); lockout/2FA verified in Phase 12, not touched this round |
 | Payment QA | **PARTIAL** | Section 12 — dev adapter fully tested; real gateway requires credentials nobody has provided |
-| Subscription/commission QA | **PARTIAL** (subscription) / **PASS** (commission) | Section 13; commission split verified exact via DB query across 130 passing vitest tests |
+| Subscription/commission QA | **PASS** | Section 13 + Round 4E Addendum above — plan switching, expiry/reminder/cancellation state machine, and commission-rate-during-grace-period all verified live + by integration tests |
 | Search/marketplace QA | **PASS** | Verified in `stage3`, doctor search, booking widget mount-fetch fix (Round 2), not regressed |
 | Public profiles | **PASS** | ISR doctor profiles, ratingCount-gated schema.org output verified not to fabricate data |
 | Reviews & ratings | **PASS** (Round 4B) | Round 4B Addendum below — patient submission, tenant moderation, exact rating recompute, decide-once enforcement, public badge all verified live (15/15) + 9 new integration tests |
@@ -543,11 +612,10 @@ it up anywhere (no service, no route, no UI, no seed data).
 | 3-viewer real-time queue test | **PASS** (Round 4A) | Round 4A Addendum above — all three viewers now converge live (12s poll) with zero manual reloads, verified via a real 3-tab Playwright test |
 | Admin cross-tenant operations tooling | **PASS** (Round 4C) | Round 4C Addendum above — audit log viewer, cross-tenant appointment search, cross-tenant user search, all `SUPER_ADMIN`-only with explicit select allowlists; verified live (23/23) + 11 new integration tests + regression (24/24, 41/41) |
 | Real payment gateway (PayTabs) | **PARTIAL → mostly closed** (Round 4D) | Round 4D Addendum above — real redirect-based adapter, verified end-to-end against a local mock server replicating PayTabs' documented contract (live 16/16 + 16 new integration tests); real-sandbox credential verification remains the one open step, see DEPLOYMENT.md |
-| Final regression | **PASS** | Section 14; 167/167 vitest tests, all Playwright stage scripts green after test-script fixes |
+| Recurring subscription billing | **PASS** (Round 4E) | Round 4E Addendum above — expiry/reminder/cancellation state machine via a daily external-scheduler tick, informational-only gating, commission rate preserved through the grace period; verified live (17/17) + 5 new integration tests |
+| Final regression | **PASS** | Section 14; 172/172 vitest tests, all Playwright stage scripts green after test-script fixes |
 
-**Zero items remain marked "NOT TESTED."** The subscription PARTIAL item is PARTIAL because
-the code is real and tested but a real-world scheduler integration was never in scope for
-this environment — not because testing was skipped. The payment item moved from PARTIAL
+**Zero items remain marked "NOT TESTED."** The payment item moved from PARTIAL
 ("no adapter exists") to mostly-closed in Round 4D: a real adapter exists and is tested
 against a faithful mock of the gateway's contract; only a live-sandbox credential check
 remains, which requires an actual PayTabs account nobody has provisioned in this
@@ -569,11 +637,17 @@ environment.
    real transaction end-to-end (DEPLOYMENT.md documents this as the explicit last step) to
    catch any field-level drift between the documented contract and the live one.
 
-2. **No recurring subscription billing.** Accepted, documented, by design (section 13). Risk:
-   a tenant's subscription never auto-renews or auto-expires; an operator must manually
-   re-subscribe tenants. Mitigation: none needed until a scheduler + real gateway exist —
-   building one now would be premature infrastructure for a business process that doesn't
-   exist yet.
+2. ~~No recurring subscription billing~~ — **closed in Round 4E**, by explicit user choice of
+   scope. A subscription now genuinely expires (`ACTIVE`/`TRIALING` → `PAST_DUE` →
+   `CANCELLED`, with a reminder 3 days out) via `runSubscriptionBillingCycle`, triggered
+   daily by an external scheduler hitting `POST /api/v1/cron/subscriptions/tick` — see the
+   Round 4E Addendum above. Renewal is deliberately still manual (the tenant admin
+   re-subscribes through the existing payment flow) rather than a silent stored-card
+   auto-charge — the user chose that scope explicitly over building PayTabs card
+   tokenization, which is real additional integration surface beyond Round 4D's one-time
+   hosted-page flow. Residual, accepted gap: true auto-charge recurring billing does not
+   exist; an operator (or the tenant admin) still acts to renew, just now with the platform
+   actually telling them when.
 
 3. ~~The appointment/queue board has no live-push mechanism~~ — **closed in Round 4A.** A
    12-second `router.refresh()` poll (`src/components/live-refresh.tsx`, pausing while the
@@ -632,7 +706,7 @@ environment.
 - [x] RTL/LTR: correct `dir`/`lang` on both locales; staff portals correctly Arabic-only
 - [x] Performance: Lighthouse 99–100 (Performance/Accessibility/Best-Practices), landing SEO
       100 (register/login's 66 is a verified false positive from an intentional `noindex`)
-- [x] 167/167 vitest tests passing (15 test files)
+- [x] 172/172 vitest tests passing (16 test files)
 - [x] Full 7-role regression passing, with every anomaly root-caused (not merely re-run until
       green)
 - [x] Real `PaymentProvider` adapter (PayTabs) built and wired — done in Round 4D (section 16,
@@ -644,8 +718,15 @@ environment.
       any of this (booking, queue, records, notifications all function); payment collection
       throws until `PAYMENT_PROVIDER` is configured. This is intentional, not a bug to route
       around.
-- [ ] **Decide on recurring subscription billing** (needs a scheduler + the real gateway
-      above) if/when the business needs automatic renewal rather than manual re-subscription
+- [x] Recurring subscription expiry/reminder/cancellation state machine built and wired —
+      done in Round 4E (section 16, risk 2)
+- [ ] **Set `CRON_SECRET` and configure an external scheduler** (Cloud Scheduler,
+      `cron-job.org`, a scheduled GitHub Action) to `POST /api/v1/cron/subscriptions/tick`
+      daily with `Authorization: Bearer $CRON_SECRET` — without this, no subscription will
+      ever expire, remind, or auto-cancel, though every other feature is unaffected. See
+      DEPLOYMENT.md. True auto-charge (stored/tokenized card) remains out of scope by
+      explicit user choice — renewal is always the tenant admin acting through the existing
+      payment flow.
 - [x] Short-poll refresh on the queue/appointment boards — done in Round 4A (section 16,
       risk 3); consider a WebSocket/SSE upgrade only if sub-second latency becomes a real need
 - [x] Admin cross-tenant audit log / appointment search / user search — done in Round 4C

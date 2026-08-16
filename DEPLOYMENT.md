@@ -68,6 +68,25 @@ sandbox, since no account exists for this project. Before taking real payments, 
 `PAYTABS_BASE_URL` at a real PayTabs sandbox profile and run one real card transaction
 end-to-end to catch any field-level drift between the documented contract and the live one.
 
+### Recurring subscription billing needs an external scheduler
+
+Set `CRON_SECRET` (`openssl rand -base64 32`) — without it `POST
+/api/v1/cron/subscriptions/tick` returns 503 and no subscription will ever expire, remind,
+or auto-cancel. This deployment target (App Hosting/Cloud Run) has no built-in cron, so a
+real deployment needs an external scheduler — Cloud Scheduler, `cron-job.org`, or a scheduled
+GitHub Action — configured to `POST` to that endpoint **daily**, with header
+`Authorization: Bearer $CRON_SECRET`. The endpoint is idempotent and safe to call more often
+than daily if that's simpler to set up.
+
+This is expiry/reminder/cancellation only, **not auto-charge**: renewal is always the tenant
+admin re-subscribing through the existing payment flow (cash or PayTabs). True recurring
+auto-charge would need PayTabs card tokenization/vaulting — a separate API surface from the
+one-time hosted-page flow above, deliberately not built (see
+`FINAL_PRODUCTION_READINESS_REPORT.md`'s Round 4E addendum for why). A subscription past its
+`currentPeriodEnd` moves to `PAST_DUE` (a 7-day grace period, feature access unaffected —
+this is a deliberate product decision, not a placeholder) and then `CANCELLED` if still
+unrenewed; a reminder notification goes out 3 days before expiry.
+
 ## Migrations must be applied before serving
 
 `npx prisma migrate deploy` is a required deploy step, not an optional one. Skipping it
