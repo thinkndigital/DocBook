@@ -39,6 +39,35 @@ as a per-page 500 on whichever request first touched it.
 records all work without a gateway, so an unconfigured one must not stop a clinic from
 running appointments. `getPaymentProvider()` still throws at call time in production.
 
+### Configuring the real payment gateway (PayTabs)
+
+Set `PAYMENT_PROVIDER=paytabs` plus `PAYTABS_PROFILE_ID` and `PAYTABS_SERVER_KEY` from the
+PayTabs dashboard (Developers > Key management) — `checkRequiredEnv()` refuses to boot in
+production if either is missing once `paytabs` is selected. `PAYTABS_BASE_URL` defaults to
+`https://secure.paytabs.com`; only override it for a region-specific endpoint. This is a
+hosted-payment-page (redirect) integration: CARD/APPLE_PAY/GOOGLE_PAY collections leave the
+payment `AWAITING_REDIRECT` and return a `redirectUrl` instead of settling synchronously —
+cash/insurance/bank transfer/corporate billing are unaffected and still settle immediately,
+since they never touch a card gateway.
+
+Two more requirements specific to this gateway:
+
+- `NEXT_PUBLIC_SITE_URL` must already be a real, publicly reachable HTTPS URL (see the SEO
+  section above) — it's used to build the callback/return URLs PayTabs is given, and a
+  `localhost` value here means PayTabs can never reach your server to confirm a payment.
+- Configure PayTabs' IPN to POST to `/api/v1/payments/paytabs/callback`. That route is
+  public by necessity (PayTabs has no session with this app) and trusts only a valid
+  HMAC-SHA256 `signature` header computed over the raw request body with your server key —
+  see `src/lib/payments/paytabs-adapter.ts`'s `verifyPaytabsSignature`.
+
+**Verification status**: built against PayTabs' documented request/response contract and
+verified end-to-end against a local mock server that replicates it exactly
+(`tests/integration/paytabs-mock-server.ts`, `tests/integration/paytabs-adapter.test.ts`,
+and a live Playwright run against a running production build) — not against a real PayTabs
+sandbox, since no account exists for this project. Before taking real payments, point
+`PAYTABS_BASE_URL` at a real PayTabs sandbox profile and run one real card transaction
+end-to-end to catch any field-level drift between the documented contract and the live one.
+
 ## Migrations must be applied before serving
 
 `npx prisma migrate deploy` is a required deploy step, not an optional one. Skipping it

@@ -131,12 +131,82 @@ suite: 150/150 vitest tests passing.
 
 ---
 
+## Round 4D Addendum — Real Payment Gateway (closes Risk #1 below, partially)
+
+Built the real `PaymentProvider` adapter section 12 said was "genuinely required to connect
+a real gateway, and nothing else" — targeting **PayTabs** (a Jordan/MENA-focused hosted
+payment page gateway, the fit this report's own market framing calls for) per explicit user
+choice between that and Stripe (which doesn't support Jordanian merchants directly).
+
+**The interface had to grow, honestly.** `collectAppointmentPayment`'s existing shape —
+call `authorize()` then `capture()` synchronously and land on `PAID` in one request — matches
+cash/insurance/DevPaymentAdapter, but no card-not-present gateway can return a real result
+that fast: PayTabs redirects the payer to a hosted page and confirms asynchronously. Rather
+than fake synchronicity, `PaymentProviderResult` gained optional `pending`/`redirectUrl`
+fields and the interface gained an optional `queryStatus()` — additive, so DevPaymentAdapter
+and every non-card method (cash/insurance/bank transfer/corporate billing, which the PayTabs
+adapter itself routes around the gateway entirely, since none of them are card transactions)
+are unaffected. A payment can now sit `AWAITING_REDIRECT` (new `PaymentStatus`, migration
+applied) between collection and settlement; `finalizeRedirectPayment` — called by both the
+PayTabs IPN webhook and a "return from payment" confirmation page, safely idempotent for
+either to win the race — settles it by **re-querying PayTabs directly** rather than trusting
+the webhook payload or the browser's return URL, since the latter is just a URL the payer
+controls. A `cancelAwaitingPayment` path (with its own UI affordance) exists so an abandoned
+redirect doesn't permanently block re-collection on that appointment.
+
+**Security choices carried through deliberately, not incidentally.** The IPN callback route
+is public (PayTabs has no session with this app) but verifies an HMAC-SHA256 signature over
+the *raw* request body before acting on anything — constant-time compared. The lookup key
+threading the whole redirect flow is this app's own Payment id (echoed back as PayTabs'
+`cart_id`), not PayTabs' `tran_ref` naming on the browser-return trip — deliberately, so nothing
+the payer's browser carries is ever trusted for more than "which of our own rows to check,"
+matching the codebase's standing rule about redirect data.
+
+**Honesty about verification, stated as plainly as the abstraction itself was in Round 3:**
+this was built against PayTabs' documented request/response contract (endpoint paths, field
+names, the hosted-page flow, the IPN signature scheme) — not against a live PayTabs account,
+because none exists for this project. Verification is a local mock server that replicates
+that exact contract byte-for-byte (`tests/integration/paytabs-mock-server.ts`), exercised by
+16 new unit/integration tests (`paytabs-adapter.test.ts`) and a full live Playwright run
+(`stage20-real-payment-gateway.mjs`, 16/16) against a running production build with the mock
+standing in for PayTabs' cloud: a real redirect+IPN round trip settling to `PAID` with a
+correct commission split, a declined transaction settling to `FAILED` with zero commissions,
+an abandoned redirect staying `AWAITING_REDIRECT` and being cancellable, signature rejection
+for a bad/missing header, and RBAC denial on both new tenant routes. This is real, tested
+integration code — not a stub — but the specific contract details (exact field names, the
+IPN signature construction) could not be cross-checked against a live sandbox response
+because docs.paytabs.com/support.paytabs.com are blocked by this environment's egress proxy;
+they were reconstructed from what public search results and support-article excerpts
+confirmed. **Before taking a real payment**, whoever configures `PAYTABS_PROFILE_ID`/
+`PAYTABS_SERVER_KEY` should run one real transaction against a live PayTabs sandbox first —
+DEPLOYMENT.md now says this explicitly.
+
+**A real bug this round's own live testing found and fixed, unrelated to PayTabs itself:**
+`/tenant/appointments`'s `paymentByAppointment` map was built as
+`new Map(payments.map(p => [p.appointmentId, p]))` from a newest-first list — for an
+appointment with more than one payment row (a cancelled/failed attempt followed by a
+successful one, which this round's cancel-and-retry flow made newly reachable in practice),
+`Map` construction keeps the *last* write per key, so the *oldest* row silently won instead
+of the newest. Fixed to keep only the first (newest) row seen per appointment. This bug
+predates this round — a failed-then-retried payment could already trigger it before
+`AWAITING_REDIRECT` existed — but was never exercised by any prior test or live QA pass; a
+correctness bug found by exercising a real flow beats one caught in code review.
+
+Full suite: 167/167 vitest passing (16 new). Regression: `stage13-admin-portal.mjs` (24/24),
+`stage12-a11y-mobile-rtl.mjs` (41/41), and `stage14-api-security-final.mjs` (10/10) all
+clean.
+
+---
+
 ## 1. Executive Summary
 
 The platform is **production-ready for the scope it claims**, with one hard, previously-known
 gap that is architectural, not a defect: there is no real payment gateway configured, and the
 code correctly refuses to fake one (`getPaymentProvider()` throws under
-`NODE_ENV=production` with `PAYMENT_PROVIDER=dev`). Every other system — auth/RBAC, tenant
+`NODE_ENV=production` with `PAYMENT_PROVIDER=dev`). **A real adapter (PayTabs) now exists —
+see the Round 4D Addendum above — but it still needs `PAYTABS_PROFILE_ID`/`PAYTABS_SERVER_KEY`
+configured, and one live sandbox transaction, before this stops being a gap in a real
+deployment.** Every other system — auth/RBAC, tenant
 isolation, the full appointment lifecycle, clinical records, notifications, the equipment
 marketplace, the representative channel, subscriptions/commissions, security, accessibility,
 mobile responsiveness, RTL/LTR, database integrity, and performance — was independently
@@ -329,6 +399,13 @@ viewport) on the three filter forms listed in section 4.
 
 ## 12. Payment Readiness — **PARTIAL (by design, not a gap in execution)**
 
+> **Round 4D update**: a real `PayTabsAdapter` now exists and is wired end-to-end — see the
+> Round 4D Addendum near the top of this document. This section is left as originally
+> written (Round 3, when the gap was "no adapter exists at all") because it still correctly
+> describes the abstraction and the dev-adapter test coverage; what changed is that a real
+> gateway can now be selected, pending the sandbox-credential verification the addendum
+> describes.
+
 **Do not read this as "not production ready" — read it as "no gateway credentials exist to
 connect."** The abstraction itself is real, tested, and correctly refuses to fake success:
 
@@ -465,21 +542,32 @@ it up anywhere (no service, no route, no UI, no seed data).
 | Accessibility audit | **PASS** | Section 9 |
 | 3-viewer real-time queue test | **PASS** (Round 4A) | Round 4A Addendum above — all three viewers now converge live (12s poll) with zero manual reloads, verified via a real 3-tab Playwright test |
 | Admin cross-tenant operations tooling | **PASS** (Round 4C) | Round 4C Addendum above — audit log viewer, cross-tenant appointment search, cross-tenant user search, all `SUPER_ADMIN`-only with explicit select allowlists; verified live (23/23) + 11 new integration tests + regression (24/24, 41/41) |
-| Final regression | **PASS** | Section 14; 150/150 vitest tests, all Playwright stage scripts green after test-script fixes |
+| Real payment gateway (PayTabs) | **PARTIAL → mostly closed** (Round 4D) | Round 4D Addendum above — real redirect-based adapter, verified end-to-end against a local mock server replicating PayTabs' documented contract (live 16/16 + 16 new integration tests); real-sandbox credential verification remains the one open step, see DEPLOYMENT.md |
+| Final regression | **PASS** | Section 14; 167/167 vitest tests, all Playwright stage scripts green after test-script fixes |
 
-**Zero items remain marked "NOT TESTED."** The two PARTIAL items (payment, subscription) are
-PARTIAL because the code is real and tested but a real-world gateway/scheduler integration
-was never in scope for this environment (no credentials exist to test against) — not because
-testing was skipped.
+**Zero items remain marked "NOT TESTED."** The subscription PARTIAL item is PARTIAL because
+the code is real and tested but a real-world scheduler integration was never in scope for
+this environment — not because testing was skipped. The payment item moved from PARTIAL
+("no adapter exists") to mostly-closed in Round 4D: a real adapter exists and is tested
+against a faithful mock of the gateway's contract; only a live-sandbox credential check
+remains, which requires an actual PayTabs account nobody has provisioned in this
+environment.
 
 ---
 
 ## 16. Remaining Risks
 
-1. **No real payment gateway is connected.** Accepted, documented, by design (section 12).
-   Risk: a clinic operator cannot actually collect card payments through the platform today;
-   cash/manual reconciliation would be the interim path. Mitigation: the abstraction is ready
-   for a single adapter to close this gap without touching any other code.
+1. ~~No real payment gateway is connected~~ — **mostly closed in Round 4D.** A real
+   `PayTabsAdapter` (`src/lib/payments/paytabs-adapter.ts`) exists: CARD/APPLE_PAY/GOOGLE_PAY
+   collections now go through PayTabs' real hosted-payment-page API (redirect + signed IPN
+   callback + server-side status re-query), while cash/insurance/bank transfer/corporate
+   billing continue settling immediately as before. See the Round 4D Addendum above for what
+   was built and how it was verified. Residual, accepted gap: verification is against a
+   local mock server built to PayTabs' documented contract, not a live PayTabs sandbox — no
+   account exists for this project. **Before a real clinic can collect a real card payment**,
+   set `PAYTABS_PROFILE_ID`/`PAYTABS_SERVER_KEY` from an actual PayTabs account and run one
+   real transaction end-to-end (DEPLOYMENT.md documents this as the explicit last step) to
+   catch any field-level drift between the documented contract and the live one.
 
 2. **No recurring subscription billing.** Accepted, documented, by design (section 13). Risk:
    a tenant's subscription never auto-renews or auto-expires; an operator must manually
@@ -544,13 +632,18 @@ testing was skipped.
 - [x] RTL/LTR: correct `dir`/`lang` on both locales; staff portals correctly Arabic-only
 - [x] Performance: Lighthouse 99–100 (Performance/Accessibility/Best-Practices), landing SEO
       100 (register/login's 66 is a verified false positive from an intentional `noindex`)
-- [x] 130/130 vitest tests passing (12 test files, including 8 new payment-adapter tests)
+- [x] 167/167 vitest tests passing (15 test files)
 - [x] Full 7-role regression passing, with every anomaly root-caused (not merely re-run until
       green)
-- [ ] **Configure a real `PaymentProvider` adapter and set `PAYMENT_PROVIDER`** before
-      enabling payment collection in production — the platform works without it (booking,
-      queue, records, notifications all function), but payment collection will throw until
-      this is done. This is intentional, not a bug to route around.
+- [x] Real `PaymentProvider` adapter (PayTabs) built and wired — done in Round 4D (section 16,
+      risk 1; DEPLOYMENT.md documents the exact env vars)
+- [ ] **Set `PAYMENT_PROVIDER=paytabs`, `PAYTABS_PROFILE_ID`, `PAYTABS_SERVER_KEY` and run one
+      real transaction against a live PayTabs sandbox** before enabling payment collection in
+      production — the adapter is verified against a faithful mock of PayTabs' documented
+      contract, not a live account (none exists for this project). The platform works without
+      any of this (booking, queue, records, notifications all function); payment collection
+      throws until `PAYMENT_PROVIDER` is configured. This is intentional, not a bug to route
+      around.
 - [ ] **Decide on recurring subscription billing** (needs a scheduler + the real gateway
       above) if/when the business needs automatic renewal rather than manual re-subscription
 - [x] Short-poll refresh on the queue/appointment boards — done in Round 4A (section 16,
