@@ -29,7 +29,12 @@ export default async function AuditLogsPage({
       </p>
 
       <form className="mb-4 flex flex-wrap gap-3" method="get">
-        <select name="entityType" defaultValue={searchParams.entityType ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          name="entityType"
+          aria-label="نوع الكيان"
+          defaultValue={searchParams.entityType ?? ''}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           <option value="">كل الأنواع</option>
           {facets.entityTypes.map((t) => (
             <option key={t} value={t}>
@@ -37,7 +42,12 @@ export default async function AuditLogsPage({
             </option>
           ))}
         </select>
-        <select name="action" defaultValue={searchParams.action ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          name="action"
+          aria-label="الإجراء"
+          defaultValue={searchParams.action ?? ''}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           <option value="">كل الإجراءات</option>
           {facets.actions.map((a) => (
             <option key={a} value={a}>
@@ -75,7 +85,7 @@ export default async function AuditLogsPage({
                 <td className="px-4 py-3 font-medium text-neutral-900">{log.action}</td>
                 <td className="px-4 py-3 text-neutral-600">
                   {log.entityType}
-                  {log.entityId && <span className="text-neutral-400"> · {log.entityId.slice(0, 8)}</span>}
+                  {log.entityId && <span className="text-neutral-500"> · {log.entityId.slice(0, 8)}</span>}
                 </td>
                 <td className="px-4 py-3 text-neutral-600">{log.actor ? `${log.actor.name} (${log.actor.role})` : '—'}</td>
                 <td className="px-4 py-3 text-neutral-600">{log.tenant?.name ?? '—'}</td>

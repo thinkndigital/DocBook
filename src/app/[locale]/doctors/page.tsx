@@ -59,11 +59,17 @@ export default async function DoctorsSearchPage({
         <input
           type="text"
           name="q"
+          aria-label={dict.common.search}
           defaultValue={searchParams.q}
           placeholder={dict.common.search}
           className="rounded-md border border-neutral-300 px-3 py-2 text-sm sm:col-span-2 md:col-span-1"
         />
-        <select name="specialty" defaultValue={searchParams.specialty ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          name="specialty"
+          aria-label={dict.registerRoles.specialty}
+          defaultValue={searchParams.specialty ?? ''}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           <option value="">{dict.doctors.allSpecialties}</option>
           {specialties.map((s) => (
             <option key={s.id} value={s.slug}>
@@ -71,7 +77,12 @@ export default async function DoctorsSearchPage({
             </option>
           ))}
         </select>
-        <select name="cityId" defaultValue={searchParams.cityId ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          name="cityId"
+          aria-label={dict.registerRoles.city}
+          defaultValue={searchParams.cityId ?? ''}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           <option value="">{dict.doctors.allCities}</option>
           {cities.map((c) => (
             <option key={c.id} value={c.id}>
@@ -79,7 +90,12 @@ export default async function DoctorsSearchPage({
             </option>
           ))}
         </select>
-        <select name="gender" defaultValue={searchParams.gender ?? ''} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          name="gender"
+          aria-label={dict.doctors.anyGender}
+          defaultValue={searchParams.gender ?? ''}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           <option value="">{dict.doctors.anyGender}</option>
           <option value="MALE">{dict.doctors.male}</option>
           <option value="FEMALE">{dict.doctors.female}</option>

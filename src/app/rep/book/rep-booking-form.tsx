@@ -112,7 +112,7 @@ export function RepBookingForm({ tenants, services }: { tenants: Tenant[]; servi
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-5">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+        <Select aria-label="الجهة الصحية" value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
           <option value="">اختر الجهة الصحية</option>
           {tenants.map((t) => (
             <option key={t.id} value={t.id}>
@@ -121,6 +121,7 @@ export function RepBookingForm({ tenants, services }: { tenants: Tenant[]; servi
           ))}
         </Select>
         <Select
+          aria-label="الطبيب"
           value={doctorId}
           disabled={!tenantId}
           onChange={(e) => {
@@ -137,6 +138,7 @@ export function RepBookingForm({ tenants, services }: { tenants: Tenant[]; servi
           ))}
         </Select>
         <Select
+          aria-label="الفرع"
           value={branchId}
           disabled={!doctorId}
           onChange={(e) => {
@@ -153,13 +155,14 @@ export function RepBookingForm({ tenants, services }: { tenants: Tenant[]; servi
         </Select>
         <Input
           type="date"
+          aria-label="التاريخ"
           value={date}
           onChange={(e) => {
             setDate(e.target.value);
             fetchSlots(doctorId, branchId, e.target.value);
           }}
         />
-        <Select value={serviceId} disabled={!tenantId} onChange={(e) => setServiceId(e.target.value)} className="col-span-2">
+        <Select aria-label="الخدمة" value={serviceId} disabled={!tenantId} onChange={(e) => setServiceId(e.target.value)} className="col-span-2">
           <option value="">اختر الخدمة</option>
           {tenantServices.map((s) => (
             <option key={s.id} value={s.id}>
