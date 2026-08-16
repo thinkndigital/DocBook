@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CancelButton } from './cancel-button';
 import { RescheduleButton } from './reschedule-button';
 import { AssistantPanel } from './assistant-panel';
+import { LiveRefresh } from '@/components/live-refresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,7 @@ export default async function PatientDashboardPage({ params }: { params: { local
 
   return (
     <div>
+      <LiveRefresh />
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">{dict.patientDashboard.title}</h1>
 
       <div className="mb-8">

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
 import { listOwnDoctorAppointments } from '@/lib/services/appointments';
 import { AppointmentActions } from '@/app/tenant/appointments/appointment-actions';
+import { LiveRefresh } from '@/components/live-refresh';
 
 const JOINABLE_CALL_STATUSES = ['CONFIRMED', 'CHECKED_IN', 'IN_QUEUE', 'CALLED', 'IN_CONSULTATION'];
 
@@ -52,6 +53,7 @@ export default async function DoctorAppointmentsPage({ searchParams }: { searchP
 
   return (
     <div>
+      <LiveRefresh />
       <h1 className="mb-1 text-2xl font-bold text-neutral-900">{dayLabel}</h1>
       <div className="mb-4 flex flex-wrap gap-2">
         <a

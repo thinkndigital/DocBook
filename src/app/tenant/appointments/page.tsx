@@ -10,6 +10,7 @@ import { listDoctors } from '@/lib/services/doctors';
 import { listServices } from '@/lib/services/catalog';
 import { NewAppointmentForm } from './new-appointment-form';
 import { AppointmentActions } from './appointment-actions';
+import { LiveRefresh } from '@/components/live-refresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,7 @@ export default async function AppointmentsPage({
 
   return (
     <div>
+      <LiveRefresh />
       <h1 className="mb-6 text-2xl font-bold text-neutral-900">المواعيد والطابور</h1>
 
       <NewAppointmentForm branches={branches} doctors={doctors} services={services} />

@@ -12,6 +12,46 @@ real defect, a documented architecture decision, or a test-script artifact.
 
 ---
 
+## Round 4A Addendum — Real-Time Queue (closes Risk #3 below)
+
+Implemented the short-poll fix this report recommended in section 16 (risk 3): a new
+`LiveRefresh` client component (`src/components/live-refresh.tsx`) calls `router.refresh()`
+every 12 seconds — pausing while the tab is hidden — and is now mounted on the three
+approved surfaces: `/tenant/appointments` (clinic queue board), `/doctor/appointments`
+(doctor's daily list), and `/[locale]/patient` (patient dashboard). This follows the same
+tradeoff already made for WebRTC call signaling elsewhere in the codebase (a short poll
+against existing server data, no new infrastructure, works across multiple server
+instances) rather than adding a WebSocket/SSE channel.
+
+**Verified live, not just code-reviewed:** a Playwright test opened all three viewers
+(clinic, doctor, patient) simultaneously, then changed the tracked appointment's status
+twice via a direct API call — simulating a fourth actor, never through any of the three
+open tabs' own actions — and confirmed each already-open tab picked up the change on its
+own, with **zero manual reloads or navigations**, purely by waiting past the poll interval:
+
+- Clinic tab: converged to `CONFIRMED` without reload — **PASS**
+- Doctor tab: converged to `CONFIRMED` without reload — **PASS**
+- Patient tab (opened before the second change): converged from `CONFIRMED` to `CHECKED_IN`
+  (تم الوصول) without reload — **PASS**
+- No console errors across a full poll cycle; simulated tab-hidden state did not crash the
+  page — **PASS**
+
+8/8 checks passed. Regression on the three affected pages (`stage3-patient-booking.mjs` 9/9,
+`stage12-a11y-mobile-rtl.mjs` 41/41) shows no interference with existing interactive elements
+(reschedule/cancel buttons, the new-appointment form) from the added polling. One unrelated,
+pre-existing test-harness failure surfaced during regression (`stage5-consultation.mjs`'s
+"COMPLETED status sync" check) — traced to the test script's transition-button locator
+picking whichever row matches a button label first when multiple same-day appointments exist
+for the tracked doctor, not to anything `LiveRefresh` touches; the underlying
+`/api/v1/tenant/appointments/[id]/status` endpoint itself was already covered extensively in
+Round 3 and this round's own 8/8 live test exercises the same endpoint successfully.
+
+This closes risk 3 in section 16 below for the three approved surfaces. It does not add a
+push-based (WebSocket/SSE) channel — see the updated risk note for what that would still buy
+over this fix.
+
+---
+
 ## 1. Executive Summary
 
 The platform is **production-ready for the scope it claims**, with one hard, previously-known
@@ -343,7 +383,7 @@ it up anywhere (no service, no route, no UI, no seed data).
 | Public profiles | **PASS** | ISR doctor profiles, ratingCount-gated schema.org output verified not to fabricate data |
 | Performance audit | **PASS** | Section 8 |
 | Accessibility audit | **PASS** | Section 9 |
-| 3-viewer real-time queue test | **PARTIAL** | Section 16 below — convergence on reload confirmed, no live-push exists (architectural, documented) |
+| 3-viewer real-time queue test | **PASS** (Round 4A) | Round 4A Addendum above — all three viewers now converge live (12s poll) with zero manual reloads, verified via a real 3-tab Playwright test |
 | Final regression | **PASS** | Section 14; 130/130 vitest tests, all Playwright stage scripts green after test-script fixes |
 
 **Zero items remain marked "NOT TESTED."** The two PARTIAL items (payment, subscription) are
@@ -366,23 +406,15 @@ testing was skipped.
    building one now would be premature infrastructure for a business process that doesn't
    exist yet.
 
-3. **The appointment/queue board has no live-push mechanism** (no WebSocket/SSE/polling) —
-   confirmed this round via a real 3-context Playwright test (patient + doctor + clinic tabs
-   open simultaneously on the same appointment): a status change made in one tab is not
-   reflected in the others until they reload or navigate. On reload, all viewers converge
-   correctly to the same state with no staleness, duplication, or conflict — the data layer
-   is sound, only the "live" part of "real-time queue" is missing. This is a real, previously
-   undocumented gap, not something this round invented: `router.refresh()` after an action
-   updates only the actor's own browser. The one place this project *does* implement live
-   polling is WebRTC call signaling (a 1.5s `setTimeout` loop in
-   `src/components/video/call-room.tsx`) — a narrower, different problem (peer signaling
-   between exactly two known parties, not broadcasting to an unbounded set of viewers).
-   **Not fixed this round** per the explicit instruction not to add new features or rebuild
-   working functionality — adding WebSocket/SSE/polling infrastructure to the queue board
-   would be exactly that. Recommendation for a future round: a short-poll refresh
-   (10–15s) on `/tenant/appointments` and `/doctor/appointments` would close most of the
-   practical gap cheaply, following the same pattern already proven safe in the video
-   signaling code.
+3. ~~The appointment/queue board has no live-push mechanism~~ — **closed in Round 4A.** A
+   12-second `router.refresh()` poll (`src/components/live-refresh.tsx`, pausing while the
+   tab is hidden) is now mounted on `/tenant/appointments`, `/doctor/appointments`, and
+   `/[locale]/patient`; see the Round 4A Addendum above for the live 3-viewer verification.
+   Residual, accepted gap: this is a **poll, not a push** — worst-case latency is ~12s, not
+   instant, and a genuine WebSocket/SSE channel would still buy lower latency and lower
+   request volume at higher infrastructure cost if the business ever needs sub-second
+   updates (e.g. a very high-volume front desk). Not needed today; the short-poll fix
+   matches the scale and existing patterns of the rest of the app.
 
 4. **The `Review` model exists in the schema with zero application wiring** — no service, no
    API route, no UI, no seed data. `aggregateRating`/`ratingCount` in the SEO JSON-LD output
@@ -431,8 +463,8 @@ testing was skipped.
       this is done. This is intentional, not a bug to route around.
 - [ ] **Decide on recurring subscription billing** (needs a scheduler + the real gateway
       above) if/when the business needs automatic renewal rather than manual re-subscription
-- [ ] Consider a short-poll refresh on the queue/appointment boards (section 16, risk 3) if
-      multi-viewer real-time convergence becomes a real operational need, not just a nice-to-have
+- [x] Short-poll refresh on the queue/appointment boards — done in Round 4A (section 16,
+      risk 3); consider a WebSocket/SSE upgrade only if sub-second latency becomes a real need
 - [ ] `NEXT_PUBLIC_SITE_URL` must be set at **build** time in the real deployment pipeline
       (`apphosting.yaml`) or canonicals/robots.txt will point at localhost — confirmed this is
       already documented and wired correctly in this repo, just flagging as a deploy-time
