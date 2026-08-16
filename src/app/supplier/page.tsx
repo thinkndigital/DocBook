@@ -5,6 +5,7 @@ import { getOwnSupplierProfile } from '@/lib/services/suppliers';
 import { listOwnProducts } from '@/lib/services/equipment';
 import { NewProductForm } from './new-product-form';
 import { ProductActions } from './product-actions';
+import { EditProductForm } from './edit-product-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,21 @@ export default async function SupplierProductsPage() {
             </p>
             <p className="mt-1 text-sm text-neutral-500">المخزون: {product.stockQty}</p>
             <p className="mt-1 text-xs text-neutral-500">{STATUS_LABEL[product.status]}</p>
-            <ProductActions productId={product.id} status={product.status} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <EditProductForm
+                productId={product.id}
+                initial={{
+                  name: product.name,
+                  nameAr: product.nameAr,
+                  category: product.category,
+                  priceMinor: product.priceMinor,
+                  stockQty: product.stockQty,
+                  description: product.description,
+                  imageUrl: product.imageUrl,
+                }}
+              />
+              <ProductActions productId={product.id} status={product.status} />
+            </div>
           </div>
         ))}
       </div>
