@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
 import { getPublicDoctor, listDoctorBookableServices } from '@/lib/services/marketplace';
 import { Badge } from '@/components/ui/badge';
+import { RatingBadge } from '@/components/marketplace/rating-badge';
 import { JsonLd } from '@/components/seo/json-ld';
 import { physicianJsonLd, breadcrumbJsonLd } from '@/lib/seo/json-ld';
 import { alternatesFor } from '@/lib/seo/site';
@@ -126,6 +127,9 @@ export default async function DoctorProfilePage({ params }: { params: { locale: 
           {doctor.verified && <Badge tone="success">{dict.doctors.verified}</Badge>}
         </div>
         <p className="mb-1 text-neutral-600">{doctor.specialty[nameKey]}</p>
+        <div className="mb-1">
+          <RatingBadge ratingAverage={doctor.ratingAverage} ratingCount={doctor.ratingCount} reviewsLabel={dict.doctors.reviewsCount} />
+        </div>
         <p className="mb-4 text-sm text-neutral-500">
           {doctor.yearsExperience} {dict.doctors.yearsExperience}
         </p>

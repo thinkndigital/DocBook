@@ -6,6 +6,7 @@ import { listOwnPatientAppointments } from '@/lib/services/appointments';
 import { Badge } from '@/components/ui/badge';
 import { CancelButton } from './cancel-button';
 import { RescheduleButton } from './reschedule-button';
+import { ReviewButton } from './review-button';
 import { AssistantPanel } from './assistant-panel';
 import { LiveRefresh } from '@/components/live-refresh';
 
@@ -68,6 +69,7 @@ export default async function PatientDashboardPage({ params }: { params: { local
             />
           )}
           {CANCELLABLE.includes(appt.status) && <CancelButton appointmentId={appt.id} dict={dict} />}
+          {appt.status === 'COMPLETED' && !appt.review && <ReviewButton appointmentId={appt.id} dict={dict} />}
         </div>
       </div>
     );

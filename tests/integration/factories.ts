@@ -186,6 +186,7 @@ export async function cleanupWorld(world: TestWorld): Promise<void> {
   });
   const appointmentIds = appointments.map((a) => a.id);
 
+  await db.review.deleteMany({ where: { appointmentId: { in: appointmentIds } } });
   await db.commission.deleteMany({ where: { appointmentId: { in: appointmentIds } } });
   const paymentIds = (await db.payment.findMany({ where: { appointmentId: { in: appointmentIds } }, select: { id: true } })).map(
     (p) => p.id

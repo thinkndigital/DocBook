@@ -9,6 +9,7 @@ import * as equipment from '@/lib/validation/equipment';
 import * as partner from '@/lib/validation/partner';
 import * as patient from '@/lib/validation/patient';
 import * as representative from '@/lib/validation/representative';
+import * as reviews from '@/lib/validation/reviews';
 import * as security from '@/lib/validation/security';
 import * as schedule from '@/lib/validation/schedule';
 import * as selfRegister from '@/lib/validation/self-register';
@@ -214,6 +215,12 @@ export const ROUTES: Record<string, RouteMeta> = {
     body: appointment.rescheduleAppointmentSchema,
     tag: 'Patient',
   },
+  'POST /api/v1/patient/reviews': {
+    summary: 'Review a completed appointment. One review per appointment; starts PENDING and does not affect the doctor\'s public rating until a tenant admin approves it.',
+    auth: 'review:create_own',
+    body: reviews.createReviewSchema,
+    tag: 'Patient',
+  },
   // ---- Video (telemedicine) ----
   'POST /api/v1/video/{appointmentId}/join': {
     summary:
@@ -407,6 +414,18 @@ export const ROUTES: Record<string, RouteMeta> = {
   'POST /api/v1/tenant/payments/refund': { summary: 'Refund a payment.', auth: 'billing:manage_tenant', body: billing.refundPaymentSchema, tag: 'Payments' },
   'GET /api/v1/tenant/patients': { summary: 'Patients known to this tenant.', auth: 'patient:register', tag: 'Tenant' },
   'POST /api/v1/tenant/patients': { summary: 'Register a patient.', auth: 'patient:register', body: patient.registerPatientSchema, tag: 'Tenant' },
+  'GET /api/v1/tenant/reviews': {
+    summary: "List this tenant's reviews. Filter by status (PENDING/APPROVED/REJECTED).",
+    auth: 'review:moderate',
+    query: [{ name: 'status', description: 'PENDING, APPROVED, or REJECTED.', required: false }],
+    tag: 'Tenant',
+  },
+  'PATCH /api/v1/tenant/reviews/{id}/moderate': {
+    summary: 'Approve or reject a pending review. Approving recomputes the doctor\'s public rating from every approved review; a review may only be decided once.',
+    auth: 'review:moderate',
+    body: reviews.moderateReviewSchema,
+    tag: 'Tenant',
+  },
   'GET /api/v1/tenant/subscription': { summary: 'Current subscription.', auth: 'billing:manage_tenant', tag: 'Payments' },
   'POST /api/v1/tenant/subscription': { summary: 'Change plan.', auth: 'billing:manage_tenant', body: billing.subscribeSchema, tag: 'Payments' },
   'GET /api/v1/tenant/analytics': { summary: 'Tenant analytics. Tenant id comes from the session, never the request.', auth: 'analytics:read_tenant', query: RANGE_QUERY, tag: 'Analytics' },

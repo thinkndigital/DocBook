@@ -46,6 +46,7 @@ export type Permission =
   | 'report:read_tenant'
   | 'analytics:read_tenant'
   | 'billing:manage_tenant'
+  | 'review:moderate'
   // AI (Phase 10). `ai:assistant` is patient-scoped and covers only questions about the
   // patient's own bookings. `ai:clinic_insights` is operational — the briefing and
   // no-show scoring — and is deliberately NOT granted to REPRESENTATIVE: a rep seeing a
@@ -134,6 +135,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[] | '*'> = {
     'report:read_tenant',
     'analytics:read_tenant',
     'billing:manage_tenant',
+    'review:moderate',
     'notification:read_own',
     'ai:clinic_insights',
   ],

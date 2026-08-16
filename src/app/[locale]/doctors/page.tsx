@@ -6,6 +6,7 @@ import { breadcrumbJsonLd } from '@/lib/seo/json-ld';
 import { alternatesFor } from '@/lib/seo/site';
 import { searchDoctors, listPublicSpecialties, listPublicCities } from '@/lib/services/marketplace';
 import { Badge } from '@/components/ui/badge';
+import { RatingBadge } from '@/components/marketplace/rating-badge';
 
 // Stays request-rendered: the results are driven by searchParams, so there is no shared
 // output to cache. The canonical below is the *unfiltered* URL, so the same doctor reached
@@ -106,6 +107,9 @@ export default async function DoctorsSearchPage({
               <p className="mt-1 text-xs text-neutral-500">
                 {doctor.branches.map((b) => b.branch.city[nameKey]).join('، ')}
               </p>
+              <div className="mt-1">
+                <RatingBadge ratingAverage={doctor.ratingAverage} ratingCount={doctor.ratingCount} reviewsLabel={dict.doctors.reviewsCount} />
+              </div>
               <p className="mt-3 font-medium text-brand-700">
                 {(doctor.consultationPriceMinor / 100).toFixed(2)} {doctor.currency} — {dict.doctors.consultationFee}
               </p>

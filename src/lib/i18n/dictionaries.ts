@@ -109,6 +109,7 @@ export interface Dictionary {
     consultationFee: string;
     viewProfile: string;
     yearsExperience: string;
+    reviewsCount: string;
   };
   doctorProfile: {
     about: string;
@@ -196,6 +197,17 @@ export interface Dictionary {
     rescheduleNoSlots: string;
     rescheduleConfirm: string;
     rescheduleFailed: string;
+    leaveReview: string;
+    reviewTitle: string;
+    reviewOverall: string;
+    reviewDoctor: string;
+    reviewStaff: string;
+    reviewWaitTime: string;
+    reviewClinic: string;
+    reviewCommentPlaceholder: string;
+    reviewSubmit: string;
+    reviewMissingRequired: string;
+    reviewFailed: string;
     status: Record<string, string>;
   };
   symptomCheck: {
@@ -308,6 +320,7 @@ const ar: Dictionary = {
     consultationFee: 'رسوم الكشف',
     viewProfile: 'عرض الملف',
     yearsExperience: 'سنوات خبرة',
+    reviewsCount: 'تقييم',
   },
   doctorProfile: {
     about: 'نبذة',
@@ -395,6 +408,17 @@ const ar: Dictionary = {
     rescheduleNoSlots: 'لا مواعيد متاحة في هذا اليوم.',
     rescheduleConfirm: 'تأكيد الموعد الجديد',
     rescheduleFailed: 'تعذر تغيير الموعد. جرّب وقتاً آخر.',
+    leaveReview: 'إضافة تقييم',
+    reviewTitle: 'قيّم زيارتك',
+    reviewOverall: 'التقييم العام',
+    reviewDoctor: 'الطبيب',
+    reviewStaff: 'الموظفون',
+    reviewWaitTime: 'وقت الانتظار',
+    reviewClinic: 'العيادة',
+    reviewCommentPlaceholder: 'أخبرنا المزيد عن زيارتك (اختياري)',
+    reviewSubmit: 'إرسال التقييم',
+    reviewMissingRequired: 'الرجاء اختيار التقييم العام وتقييم الطبيب.',
+    reviewFailed: 'تعذر إرسال التقييم.',
     status: {
       PENDING: 'قيد الانتظار',
       CONFIRMED: 'مؤكد',
@@ -518,6 +542,7 @@ const en: Dictionary = {
     consultationFee: 'Consultation fee',
     viewProfile: 'View profile',
     yearsExperience: 'years of experience',
+    reviewsCount: 'reviews',
   },
   doctorProfile: {
     about: 'About',
@@ -605,6 +630,17 @@ const en: Dictionary = {
     rescheduleNoSlots: 'No slots available on this day.',
     rescheduleConfirm: 'Confirm new time',
     rescheduleFailed: 'Could not change the appointment. Try another time.',
+    leaveReview: 'Leave a review',
+    reviewTitle: 'Rate your visit',
+    reviewOverall: 'Overall',
+    reviewDoctor: 'Doctor',
+    reviewStaff: 'Staff',
+    reviewWaitTime: 'Wait time',
+    reviewClinic: 'Clinic',
+    reviewCommentPlaceholder: 'Tell us more about your visit (optional)',
+    reviewSubmit: 'Submit review',
+    reviewMissingRequired: 'Please choose an overall rating and a doctor rating.',
+    reviewFailed: 'Could not submit the review.',
     status: {
       PENDING: 'Pending',
       CONFIRMED: 'Confirmed',

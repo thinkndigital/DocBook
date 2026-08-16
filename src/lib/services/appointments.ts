@@ -454,7 +454,7 @@ export async function listOwnPatientAppointments(userId: string) {
   if (!patient) return null;
   return db.appointment.findMany({
     where: { patientId: patient.id },
-    include: APPOINTMENT_INCLUDE,
+    include: { ...APPOINTMENT_INCLUDE, review: { select: { id: true } } },
     orderBy: { scheduledAt: 'desc' },
   });
 }
