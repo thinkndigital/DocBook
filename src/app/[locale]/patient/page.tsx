@@ -5,6 +5,7 @@ import { getDictionary, type Locale } from '@/lib/i18n/dictionaries';
 import { listOwnPatientAppointments } from '@/lib/services/appointments';
 import { Badge } from '@/components/ui/badge';
 import { CancelButton } from './cancel-button';
+import { RescheduleButton } from './reschedule-button';
 import { AssistantPanel } from './assistant-panel';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,7 @@ export default async function PatientDashboardPage({ params }: { params: { local
 
   function AppointmentRow({ appt }: { appt: (typeof appointments)[number] }) {
     return (
-      <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4">
+      <div className="relative flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4">
         <div>
           <p className="font-medium text-neutral-900">{appt.doctor.user.name}</p>
           <p className="text-sm text-neutral-600">
@@ -56,6 +57,14 @@ export default async function PatientDashboardPage({ params }: { params: { local
             >
               الانضمام للمكالمة
             </a>
+          )}
+          {CANCELLABLE.includes(appt.status) && (
+            <RescheduleButton
+              appointmentId={appt.id}
+              doctorId={appt.doctorId}
+              branchId={appt.branchId}
+              dict={dict}
+            />
           )}
           {CANCELLABLE.includes(appt.status) && <CancelButton appointmentId={appt.id} dict={dict} />}
         </div>
@@ -74,7 +83,15 @@ export default async function PatientDashboardPage({ params }: { params: { local
       <h2 className="mb-3 font-semibold text-neutral-700">{dict.patientDashboard.upcoming}</h2>
       <div className="mb-8 flex flex-col gap-3">
         {upcoming.length === 0 ? (
-          <p className="text-sm text-neutral-500">{dict.patientDashboard.noAppointments}</p>
+          <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center">
+            <p className="mb-3 text-sm text-neutral-500">{dict.patientDashboard.noAppointments}</p>
+            <a
+              href={`/${params.locale}/doctors`}
+              className="inline-block rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              {dict.patientDashboard.noAppointmentsCta}
+            </a>
+          </div>
         ) : (
           upcoming.map((appt) => <AppointmentRow key={appt.id} appt={appt} />)
         )}

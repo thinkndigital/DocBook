@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { getTenant } from '@/lib/services/tenants';
 import { ResetPasswordButton } from '@/components/admin/reset-password-button';
 import { TenantStatusActions } from './tenant-status-actions';
-import type { TenantStatus } from '@prisma/client';
+import type { TenantStatus, UserStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,23 @@ const STATUS_TONE: Record<TenantStatus, 'neutral' | 'success' | 'warning' | 'dan
   REJECTED: 'neutral',
 };
 
+// Same labels as /admin/tenants — this page previously rendered the raw enum (e.g. "ACTIVE",
+// "PENDING_VERIFICATION") instead of Arabic text, the one spot in an otherwise Arabic-only
+// admin portal that did.
+const STATUS_LABEL: Record<TenantStatus, string> = {
+  PENDING_VERIFICATION: 'بانتظار التحقق',
+  ACTIVE: 'نشطة',
+  SUSPENDED: 'موقوفة',
+  REJECTED: 'مرفوضة',
+};
+
+const USER_STATUS_LABEL: Record<UserStatus, string> = {
+  ACTIVE: 'نشط',
+  INVITED: 'مدعو',
+  SUSPENDED: 'موقوف',
+  DEACTIVATED: 'معطّل',
+};
+
 export default async function TenantDetailPage({ params }: { params: { id: string } }) {
   const tenant = await getTenant(params.id);
   if (!tenant) notFound();
@@ -23,7 +40,7 @@ export default async function TenantDetailPage({ params }: { params: { id: strin
     <div className="max-w-2xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-neutral-900">{tenant.nameAr}</h1>
-        <Badge tone={STATUS_TONE[tenant.status]}>{tenant.status}</Badge>
+        <Badge tone={STATUS_TONE[tenant.status]}>{STATUS_LABEL[tenant.status]}</Badge>
       </div>
 
       <Card className="mb-4">
@@ -63,7 +80,7 @@ export default async function TenantDetailPage({ params }: { params: { id: strin
                   {u.name} — {u.email}
                 </span>
                 <div className="flex items-center gap-3">
-                  <Badge tone={u.status === 'ACTIVE' ? 'success' : 'neutral'}>{u.status}</Badge>
+                  <Badge tone={u.status === 'ACTIVE' ? 'success' : 'neutral'}>{USER_STATUS_LABEL[u.status]}</Badge>
                   <ResetPasswordButton endpoint={`/api/v1/admin/tenants/${tenant.id}/admin-password`} />
                 </div>
               </li>

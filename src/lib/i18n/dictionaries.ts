@@ -181,7 +181,14 @@ export interface Dictionary {
     upcoming: string;
     past: string;
     noAppointments: string;
+    noAppointmentsCta: string;
     cancelAppointment: string;
+    rescheduleAppointment: string;
+    rescheduleTitle: string;
+    rescheduleClose: string;
+    rescheduleNoSlots: string;
+    rescheduleConfirm: string;
+    rescheduleFailed: string;
     status: Record<string, string>;
   };
   symptomCheck: {
@@ -366,7 +373,14 @@ const ar: Dictionary = {
     upcoming: 'القادمة',
     past: 'السابقة',
     noAppointments: 'لا توجد مواعيد.',
+    noAppointmentsCta: 'ابحث عن طبيب',
     cancelAppointment: 'إلغاء الموعد',
+    rescheduleAppointment: 'إعادة جدولة',
+    rescheduleTitle: 'اختر موعداً جديداً',
+    rescheduleClose: 'إغلاق',
+    rescheduleNoSlots: 'لا مواعيد متاحة في هذا اليوم.',
+    rescheduleConfirm: 'تأكيد الموعد الجديد',
+    rescheduleFailed: 'تعذر تغيير الموعد. جرّب وقتاً آخر.',
     status: {
       PENDING: 'قيد الانتظار',
       CONFIRMED: 'مؤكد',
@@ -562,7 +576,14 @@ const en: Dictionary = {
     upcoming: 'Upcoming',
     past: 'Past',
     noAppointments: 'No appointments.',
+    noAppointmentsCta: 'Find a doctor',
     cancelAppointment: 'Cancel appointment',
+    rescheduleAppointment: 'Reschedule',
+    rescheduleTitle: 'Choose a new time',
+    rescheduleClose: 'Close',
+    rescheduleNoSlots: 'No slots available on this day.',
+    rescheduleConfirm: 'Confirm new time',
+    rescheduleFailed: 'Could not change the appointment. Try another time.',
     status: {
       PENDING: 'Pending',
       CONFIRMED: 'Confirmed',
