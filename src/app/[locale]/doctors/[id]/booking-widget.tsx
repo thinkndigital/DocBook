@@ -91,6 +91,7 @@ export function BookingWidget({ locale, dict, doctorId, branches, services }: Pr
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <select
+          aria-label={dict.doctorProfile.branches}
           value={branchId}
           onChange={(e) => {
             setBranchId(e.target.value);
@@ -104,7 +105,12 @@ export function BookingWidget({ locale, dict, doctorId, branches, services }: Pr
             </option>
           ))}
         </select>
-        <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="rounded-md border border-neutral-300 px-3 py-2 text-sm">
+        <select
+          aria-label={locale === 'ar' ? 'الخدمة' : 'Service'}
+          value={serviceId}
+          onChange={(e) => setServiceId(e.target.value)}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        >
           {services.map((s) => (
             <option key={s.id} value={s.id}>
               {s[nameKey]} ({(s.priceMinor / 100).toFixed(2)} {s.currency})
@@ -113,6 +119,7 @@ export function BookingWidget({ locale, dict, doctorId, branches, services }: Pr
         </select>
         <input
           type="date"
+          aria-label={locale === 'ar' ? 'التاريخ' : 'Date'}
           value={date}
           onChange={(e) => {
             setDate(e.target.value);
